@@ -25,11 +25,13 @@ class Maze_Environment():
     self.agent_cell = self.maze.start_cell
     self.num_actions = 4
     self.path_history = []  # (state, reward, done, info)
+    self.trace_length = trace_length
 
     # Add reward traces to cells
-    self.reward_trace = self.calculate_reward_trace(trace_length)
+    self.reward_trace = self.calculate_reward_trace()
 
-  def calculate_reward_trace(self, trace_length):
+  # Paths of length 'trace_length' emanating from goal cell providing agent with reward
+  def calculate_reward_trace(self):
     reward_trace = np.full((self.height, self.width), np.inf)
     goal = self.maze.end_cell.coordinates
     queue = deque([(goal, 0)])  # (cell coordinates, distance)
@@ -37,7 +39,7 @@ class Maze_Environment():
 
     while queue:
       (x, y), dist = queue.popleft()
-      if (x, y) in visited or dist > trace_length:
+      if (x, y) in visited or dist > self.trace_length:
         continue
       visited.add((x, y))
       reward_trace[y, x] = dist
@@ -50,13 +52,16 @@ class Maze_Environment():
     # Normalize reward trace to go from large to small values
     max_dist = np.max(reward_trace[reward_trace != np.inf])
     reward_trace = max_dist - reward_trace
-    reward_trace[reward_trace > trace_length] = 0  # Cut off at trace_length
+    reward_trace[reward_trace > self.trace_length] = 0  # Cut off at trace_length
     reward_trace[reward_trace == -np.inf] = 0  # Replace np.inf with 0
     return reward_trace.T
 
-  def plot(self, ax=None):
+  def plot(self, agent_coords, ax=None):
     if ax is None:
       fig, ax = plt.subplots()
+
+    # Transpose agent coordinates (just how the maze is stored)
+    agent_coords = agent_coords[::-1]
 
     # Box around maze
     ax.plot([-0.5, self.width-1+0.5], [-0.5, -0.5], color='black')
@@ -68,7 +73,7 @@ class Maze_Environment():
     for row in range(self.height):
       for column in range(self.width):
         # Path
-        cell = self.maze[column, row]  # Tranpose maze coordinates (just how the maze is stored)
+        cell = self.maze[column, row]  # Transpose maze coordinates (just how the maze is stored)
         if cell == self.maze.start_cell:
           ax.plot(row, column, 'go')
         elif cell == self.maze.end_cell:
@@ -82,6 +87,9 @@ class Maze_Environment():
         if Direction.E not in cell.open_walls:
           ax.plot([row+0.5, row+0.5], [column-0.5, column+0.5], color='black')
 
+    # Plot agent
+    ax.plot(agent_coords[0], agent_coords[1], 'yo')
+
     return ax
 
   def reset(self):
@@ -93,7 +101,6 @@ class Maze_Environment():
   # Returns next state, reward, done, info
   def step(self, action):
     # Transform action into Direction
-    action_num = action.cpu().item()
     if action == 0:
       action = Direction.N
     elif action == 1:
@@ -105,7 +112,7 @@ class Maze_Environment():
 
     # Check if action runs into wall
     if action not in self.agent_cell.open_walls:
-      self.path_history.append((self.agent_cell.coordinates, -1, False, action_num))
+      self.path_history.append((self.agent_cell.coordinates, -1, False, action))
       return self.agent_cell, -1, False, {}
 
     # Move agent
@@ -113,21 +120,22 @@ class Maze_Environment():
       prev_cell = self.agent_cell
       self.agent_cell = self.maze.neighbor(self.agent_cell, action)
       if self.agent_cell == self.maze.end_cell:    # Check if agent has reached the end
-        self.path_history.append((self.agent_cell.coordinates, 1, True, action_num))
+        self.path_history.append((self.agent_cell.coordinates, 1, True, action))
         return self.agent_cell, 1, True, {}
       else:
         prev_trace = self.reward_trace[prev_cell.coordinates]
         new_trace = self.reward_trace[self.agent_cell.coordinates]
         reward = 1 if new_trace > prev_trace else 0
-        self.path_history.append((self.agent_cell.coordinates, reward, False, action_num))
+        self.path_history.append((self.agent_cell.coordinates, reward, False, action))
         return self.agent_cell, reward, False, {}
 
   def save(self, filename):
     with open(filename, 'wb') as f:
       pkl.dump(self, f)
 
+
 class Grid_Cell_Maze_Environment(Maze_Environment):
-  def __init__(self, width, height, recalled_memories_sorted, trace_length=5, load_from=None):
+  def __init__(self, width, height, in_spikes, trace_length=5, load_from=None):
     if load_from is not None:
       with open(load_from, 'rb') as f:
         super().__init__(width, height, trace_length)
@@ -136,30 +144,25 @@ class Grid_Cell_Maze_Environment(Maze_Environment):
     else:
       super().__init__(width, height, trace_length)
 
-    self.reward_trace = self.calculate_reward_trace(trace_length)
-    self.samples = recalled_memories_sorted
+    self.reward_trace = self.calculate_reward_trace()
+    self.samples = in_spikes
 
   # Returns:
   # - Spike train of grid cell corresponding to agent's position
-  # - True coordinates (x, y)
+  # - Reset coordinates (x, y)
   # - info: (empty)
   def reset(self):
     cell, info = super().reset()
     return self.state_to_grid_cell_spikes(cell), cell.coordinates, info
 
+  # Move in maze
   def step(self, action):
     obs, reward, done, info = super().step(action)
     coords = obs.coordinates
     obs = self.state_to_grid_cell_spikes(obs)
-    return obs, reward, done, coords, info
+    return obs, reward, done, coords
 
+  # Return stored spike trains at coordinate location
   def state_to_grid_cell_spikes(self, cell):
-    return random.choice(self.samples[cell.coordinates])
+    return self.samples[cell.coordinates]
 
-
-if __name__ == '__main__':
-  env = Grid_Cell_Maze_Environment(width=5, height=5, trace_length=5,
-                                   samples_file='Data/recalled_memories_sorted.pkl')
-  print(env.maze)
-  with open('Data/env.pkl', 'wb') as f:
-    pkl.dump(env, f)

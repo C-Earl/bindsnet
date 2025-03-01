@@ -11,17 +11,17 @@ from bindsnet.learning.MCC_learning import MSTDP
 
 class Reservoir(Network):
   def __init__(self,
-               in_size,   # Number of input neurons
-               exc_size,  # Number of excitatory neurons
-               inh_size,  # Number of inhibitory neurons
-               w_in_exc,  # Input to excitatory weights
-               w_in_inh,  # Input to inhibitory weights
-               w_exc_exc, # Excitatory to excitatory weights
-               w_exc_inh, # Excitatory to inhibitory weights
-               w_inh_exc, # Inhibitory to excitatory weights
-               w_inh_inh, # Inhibitory to inhibitory weights
-               hyper_params,  # Dictionary of hyperparameters
-               device='cpu'):
+               in_size: int,   # Number of input neurons
+               exc_size: int,  # Number of excitatory neurons
+               inh_size: int,  # Number of inhibitory neurons
+               w_in_exc: np.ndarray,  # Input to excitatory weights
+               w_in_inh: np.ndarray,  # Input to inhibitory weights
+               w_exc_exc: np.ndarray, # Excitatory to excitatory weights
+               w_exc_inh: np.ndarray, # Excitatory to inhibitory weights
+               w_inh_exc: np.ndarray, # Inhibitory to excitatory weights
+               w_inh_inh: np.ndarray, # Inhibitory to inhibitory weights
+               hyper_params: dict,  # Dictionary of hyperparameters
+               device: str = 'cpu'):
     super().__init__()
 
     ## Layers ##

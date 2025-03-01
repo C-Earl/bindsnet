@@ -204,6 +204,7 @@ class GC_Module:
 
     # Plot position
     if pos:
-      plt.plot(pos[0], pos[1], 'o', color='red')
+      ax.plot(pos[0], pos[1], 'o', color='red')
+      ax.set_title('Activity: ' + str(self.activity(pos)))
 
     return ax

@@ -1,18 +1,15 @@
 from Grid_Cells import Grid_Cell, GC_Module
 import matplotlib.pyplot as plt
 import numpy as np
-NUM_CELLS = 4
-x_offsets = [0]*4
-y_offsets = [0]*4
-rotations = [0]*4
-scale = [1]*4
-sharpness = [1]*4
+NUM_CELLS = 1
+x_offsets = [0]
+y_offsets = [0]
+rotations = [.1]
+scale = [1]
+sharpness = [1]
 gc_m = GC_Module(NUM_CELLS, x_offsets, y_offsets, rotations, scale, sharpness)
 fig, ax = plt.subplots(figsize=(5, 5))
-gs = fig.add_gridspec(1, 4)
-for i, gc in enumerate(gc_m.grid_cells):
-  ax = fig.add_subplot(gs[0, i])
-  gc.plot_peaks([0,10], [0,10], pos=(0,0), contours=True, fig=fig, ax=ax)
+gc_m.grid_cells[0].plot_peaks([0,10], [0,10], pos=(4.5,4.5), contours=True, fig=fig, ax=ax)
 # gc_m.grid_cells[0].plot_peaks([0,10], [0,10], pos=(5,5), contours=True, fig=fig, ax=ax)
 # gc_m.plot_peaks([0,10], [0,10], pos=(5,5), contours=True, fig=fig, ax=ax)
 print()

@@ -253,7 +253,7 @@ def train_STDP_RL(recalled_memories_sorted, env_width, env_height, max_total_ste
   model = STDP_RL_Model(in_size, out_size, hyper_params, w_in_out, w_out_out, alpha, gamma,
                         lr, decay, wmin, wmax, device)
   env = Grid_Cell_Maze_Environment(width=env_width, height=env_height, trace_length=env_trace_length,
-                                   recalled_memories_sorted=recalled_memories_sorted,
+                                   in_spikes=recalled_memories_sorted,
                                    load_from=env_path)
 
   ## Training loop ##
