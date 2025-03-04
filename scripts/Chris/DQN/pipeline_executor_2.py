@@ -174,7 +174,7 @@ def run(parameters: dict):
     for i in range(MAZE_SIZE[0]):
       for j in range(MAZE_SIZE[1]):
         ax = fig.add_subplot(gs[i, j])
-        ax.imshow(res_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
+        ax.imshow(res_spike_trains[i, j].T, aspect='auto', cmap='binary', interpolation=None)
         ax.set_xticks([])
         ax.set_yticks([])
     # Diversity
@@ -262,7 +262,7 @@ if __name__ == '__main__':
   p = {
     'plot': True,
     'animate_training': True,
-    'maze_size': (5, 5),
+    'maze_size': (3, 3),
     'num_cells': NUM_CELLS,
     'x_offsets': np.random.uniform(-1, 1, NUM_CELLS),
     'y_offsets': np.random.uniform(-1, 1, NUM_CELLS),
@@ -304,13 +304,13 @@ if __name__ == '__main__':
 
     },
     'sparsities': {
-      'in_exc': 0.15,
-      'in_inh': 0.15,
+      'in_exc': 0.05,
+      'in_inh': 0.0,
       'exc_exc': 0.0,
       'exc_inh': 0.0,
-      'inh_exc': 0.30,
+      'inh_exc': 0.0,
       'inh_inh': 0.0,
-      'exc_out': 0.15,
+      'exc_out': 0.1,
       'out_out': 0.0,
     },
     'alpha': 0.1,   # Q-Table learning rate
