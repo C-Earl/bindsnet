@@ -135,3 +135,4 @@ class STDP_Q_Learning(Network):
     ax.set_xlabel('Time')
     ax.set_ylabel('Neuron')
     return ax
+

@@ -213,28 +213,31 @@ def run(parameters: dict):
     load_from=ENV_PATH
   )
 
+  if ANIMATE_TRAINING:
+    fig = plt.figure(figsize=(5, 5))
+    gs = gridspec.GridSpec(2, 3)
+    maze_ax = fig.add_subplot(gs[0:2, -2:])
+    weights_ax = fig.add_subplot(gs[0, 0])
+    spikes_ax = fig.add_subplot(gs[1, 0])
+
   def run_episode(animate=False):
     # state: spike trains of shape (exc+inh, time)
     state, coords, _ = env.reset()
     history = []
-    if animate:
-      fig = plt.figure(figsize=(5, 5))
-      gs = gridspec.GridSpec(2, 3)
-      maze_ax = fig.add_subplot(gs[0:2, 1:3])
-      weights_ax = fig.add_subplot(gs[0, 0])
-      spikes_ax = fig.add_subplot(gs[1, 0])
     for t in count():
       if animate:
         maze_ax.clear()
-        spikes_ax.clear()
         weights_ax.clear()
+        spikes_ax.clear()
         model.plot_weights(ax=weights_ax)
         model.plot_spikes(ax=spikes_ax, spikes=state)
-        env.plot(coords, ax=maze_ax)
+        env.plot(coords, q_table=model.q_table, ax=maze_ax)
+        plt.tight_layout()
         plt.pause(0.1)
       action, out_spikes = model.select_action(state, SIM_TIME)
       new_state, reward, terminated, new_coords = env.step(action)
-      delta_Q = model.Q_Learning(new_state, action, reward, new_state)
+      delta_Q = model.Q_Learning(coords, action, reward, new_state)   # Alternatively with new_state rather than coords
+      # delta_Q = model.Q_Learning(new_state, action, reward, new_state)
       model.STDP_RL(reward, state, out_spikes)
       model.reset_state_variables()
       history.append((state, action, reward, new_state, delta_Q))
@@ -251,7 +254,6 @@ def run(parameters: dict):
     history = run_episode(ANIMATE_TRAINING)
     print(f"Episode {episode+1}/{NUM_EPISODES} - Steps: {len(history)}")
     universal_history.append(history)
-
 
 
 if __name__ == '__main__':
@@ -311,10 +313,10 @@ if __name__ == '__main__':
       'exc_out': 0.15,
       'out_out': 0.0,
     },
-    'alpha': 0.1,
-    'gamma': 0.9,
-    'decay': 0.1,
-    'lr': 0.1,
+    'alpha': 0.1,   # Q-Table learning rate
+    'gamma': 0.9,   # Q-Table discount factor (how much future rewards are discounted)
+    'decay': 0.1,   # Synaptic decay (UNUSED)
+    'lr': 0.1,      # Weight update learning rateq
     'trace_length': 15,
     'env_path': 'env.pkl',
     'max_steps': 1000,

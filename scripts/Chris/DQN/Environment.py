@@ -56,7 +56,7 @@ class Maze_Environment():
     reward_trace[reward_trace == -np.inf] = 0  # Replace np.inf with 0
     return reward_trace.T
 
-  def plot(self, agent_coords, ax=None):
+  def plot(self, agent_coords, q_table: dict, ax=None):
     if ax is None:
       fig, ax = plt.subplots()
 
@@ -86,6 +86,17 @@ class Maze_Environment():
           ax.plot([row-0.5, row+0.5], [column+0.5, column+0.5], color='black')
         if Direction.E not in cell.open_walls:
           ax.plot([row+0.5, row+0.5], [column-0.5, column+0.5], color='black')
+
+        # Table
+        if q_table:
+          if (column, row) in q_table:
+            q_values = q_table[(column, row)]
+          else:
+            q_values = np.zeros(self.num_actions) # Actions are N, E, S, W
+          ax.text(row, column-0.4, f'{q_values[0]:.2f}S', ha='center', va='center')
+          ax.text(row+0.4, column, f'{q_values[1]:.2f}E', ha='center', va='center', rotation=90)
+          ax.text(row, column+0.4, f'{q_values[2]:.2f}N', ha='center', va='center')
+          ax.text(row-0.4, column, f'{q_values[3]:.2f}W', ha='center', va='center', rotation=90)
 
     # Plot agent
     ax.plot(agent_coords[0], agent_coords[1], 'yo')
