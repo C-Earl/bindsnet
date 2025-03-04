@@ -257,18 +257,18 @@ def run(parameters: dict):
 
 
 if __name__ == '__main__':
-  NUM_CELLS = 50
-  np.random.seed(0)
+  NUM_CELLS = 100
+  np.random.seed(1)
   p = {
-    'plot': False,
+    'plot': True,
     'animate_training': True,
     'maze_size': (5, 5),
     'num_cells': NUM_CELLS,
     'x_offsets': np.random.uniform(-1, 1, NUM_CELLS),
     'y_offsets': np.random.uniform(-1, 1, NUM_CELLS),
     'rotations': np.random.uniform(-np.pi, np.pi, NUM_CELLS),
-    'scales': np.random.uniform(0.5, 3.5, NUM_CELLS),
-    'sharpness': np.ones(NUM_CELLS),    # Should *not* go below 1
+    'scales': np.random.uniform(1, 3, NUM_CELLS),
+    'sharpness': np.ones(NUM_CELLS)*2,    # Should *not* go below 1
     'sim_time': 1000, # ms
     'exc_size': 100,
     'inh_size': 25,
@@ -305,10 +305,10 @@ if __name__ == '__main__':
     },
     'sparsities': {
       'in_exc': 0.15,
-      'in_inh': 0.0,
+      'in_inh': 0.15,
       'exc_exc': 0.0,
       'exc_inh': 0.0,
-      'inh_exc': 0.0,
+      'inh_exc': 0.30,
       'inh_inh': 0.0,
       'exc_out': 0.15,
       'out_out': 0.0,

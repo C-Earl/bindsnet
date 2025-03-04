@@ -130,7 +130,7 @@ class STDP_Q_Learning(Network):
     return ax
 
   def plot_spikes(self, ax, spikes):
-    ax.imshow(spikes, aspect='auto', cmap='binary')
+    ax.imshow(spikes.T, aspect='auto', cmap='binary')
     ax.set_title('Spikes')
     ax.set_xlabel('Time')
     ax.set_ylabel('Neuron')
