@@ -1,6 +1,7 @@
 from itertools import count
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import numpy as np
 import torch
 
@@ -217,11 +218,19 @@ def run(parameters: dict):
     state, coords, _ = env.reset()
     history = []
     if animate:
-      fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+      fig = plt.figure(figsize=(5, 5))
+      gs = gridspec.GridSpec(2, 3)
+      maze_ax = fig.add_subplot(gs[0:2, 1:3])
+      weights_ax = fig.add_subplot(gs[0, 0])
+      spikes_ax = fig.add_subplot(gs[1, 0])
     for t in count():
       if animate:
-        ax.clear()
-        env.plot(coords, ax=ax)
+        maze_ax.clear()
+        spikes_ax.clear()
+        weights_ax.clear()
+        model.plot_weights(ax=weights_ax)
+        model.plot_spikes(ax=spikes_ax, spikes=state)
+        env.plot(coords, ax=maze_ax)
         plt.pause(0.1)
       action, out_spikes = model.select_action(state, SIM_TIME)
       new_state, reward, terminated, new_coords = env.step(action)
@@ -293,13 +302,13 @@ if __name__ == '__main__':
 
     },
     'sparsities': {
-      'in_exc': 0.1,
-      'in_inh': 0.1,
+      'in_exc': 0.15,
+      'in_inh': 0.0,
       'exc_exc': 0.0,
       'exc_inh': 0.0,
       'inh_exc': 0.0,
       'inh_inh': 0.0,
-      'exc_out': 0.1,
+      'exc_out': 0.15,
       'out_out': 0.0,
     },
     'alpha': 0.1,

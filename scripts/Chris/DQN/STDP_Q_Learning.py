@@ -119,3 +119,19 @@ class STDP_Q_Learning(Network):
       action = max_inds[np.random.randint(0, len(max_inds))]
       # action = torch.argmax(out_spikes.reshape(sim_time, self.num_actions).sum(0))
     return action, out_spikes
+
+  def plot_weights(self, ax):
+    w = self.weights.value
+    ax.imshow(w, cmap='viridis')
+    ax.set_title('Synaptic Weights')
+    ax.set_xlabel('Motor Control Neurons')
+    ax.set_ylabel('Association Neurons')
+    ax.set_aspect('auto')
+    return ax
+
+  def plot_spikes(self, ax, spikes):
+    ax.imshow(spikes, aspect='auto', cmap='binary')
+    ax.set_title('Spikes')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Neuron')
+    return ax
