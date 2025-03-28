@@ -1,6 +1,7 @@
 from scipy.stats import multivariate_normal
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.colors as mcolors
 import math
 
 # https://stackoverflow.com/questions/74519927/best-way-to-rotate-and-translate-a-set-of-points-in-python
@@ -128,7 +129,7 @@ class Grid_Cell:
     for i in range(plt_indices.shape[0]):
       for j in range(plt_indices.shape[1]):
         x, y = plt_indices[i, j]
-        ax.plot(x, y, '.', alpha=0.5, color=color)
+        ax.plot(x, y, '.', alpha=1, color=color)
     ax.set_xlim(x_range[0], x_range[1])
     ax.set_ylim(y_range[0], y_range[1])
 
@@ -165,9 +166,9 @@ class Grid_Cell:
     return cont_map
 
 
-# Module of Grid Cell populations, each with a different scale
+# Module of Grid Cells
 class GC_Module:
-  def __init__(self, n_cells, x_offsets, y_offsets, rotations, scales, sharpnesses, max_firing_rates=None):
+  def __init__(self, n_cells, x_offsets, y_offsets, rotations, scales, sharpnesses, max_firing_rates=None, colors=None):
     max_firing_rates = max_firing_rates if max_firing_rates is not None else [8] * n_cells
     self.grid_cells = [Grid_Cell(x_offsets[i], y_offsets[i],
                        rotations[i], scales[i], sharpnesses[i],
@@ -179,11 +180,14 @@ class GC_Module:
     self.scales = scales
     self.sharpnesses = sharpnesses
     self.max_firing_rates = max_firing_rates
-    self.colors = []    # Colors for plotting, 60 total
-    for cmap_name in ['tab20', 'tab20b', 'tab20c', 'Set1', 'Set2', 'Set3', 'Paired', 'Pastel1', 'Pastel2',
-    'Accent', 'Dark2']:
-      cmap = plt.get_cmap(cmap_name)
-      self.colors.extend([cmap(i) for i in np.linspace(0, 1, 20)])
+    if colors is None:
+      self.colors = []
+      for cmap_name in ['tab20', 'tab20b', 'tab20c', 'Set1', 'Set2', 'Set3', 'Paired', 'Pastel1', 'Pastel2',
+      'Accent', 'Dark2']:
+        cmap = plt.get_cmap(cmap_name)
+        self.colors.extend([cmap(i) for i in np.linspace(0, 1, 20)])
+    else:
+      self.colors = colors
 
   # Generate Grid Cell activities for given position
   def activity(self, pos):
@@ -208,3 +212,92 @@ class GC_Module:
       ax.set_title('Activity: ' + str(self.activity(pos)))
 
     return ax
+
+
+# Population of Modules
+# Each module has same scale, rotation, sharpness, but varying offsets
+class GC_Population:
+  def __init__(self, num_modules, offsets_per_module, global_scale, scales, rotations, sharpnesses):
+    self.num_modules = num_modules
+    self.offsets_per_module = offsets_per_module
+    self.global_scale = global_scale
+    self.scales = scales
+    self.rotations = rotations
+    self.sharpnesses = sharpnesses
+    self.modules = []
+    self.cells_per_module = offsets_per_module**2
+
+    # Use for varying shades of same color per module
+    base_colors =  [
+      "#E6194B",  # Red
+      "#3CB44B",  # Green
+      "#FFE119",  # Yellow
+      "#0082C8",  # Blue
+      "#F58231",  # Orange
+      "#911EB4",  # Purple
+      "#46F0F0",  # Cyan
+      "#F032E6",  # Magenta
+      "#D2F53C",  # Lime
+      "#FABEBE",  # Pink
+      "#008080",  # Teal
+      "#E6BEFF",  # Lavender
+      "#AA6E28",  # Brown
+      "#FFFAC8",  # Light Yellow
+      "#800000",  # Maroon
+      "#AAFFC3",  # Mint
+      "#808000",  # Olive
+      "#FFD8B1",  # Peach
+      "#000080",  # Navy
+      "#808080",  # Gray
+      "#000000",  # Black
+      "#FFFFFF",  # White
+    ]
+
+    for i, r in enumerate(rotations):
+      for j in range(num_modules):
+        # Create grid of uniformly spaced offsets
+        x_offsets = []
+        y_offsets = []
+        s = scales[j] * global_scale
+        offset_step_size = s / offsets_per_module
+        base_x_offsets = []
+        for k in range(1, offsets_per_module + 1):
+         base_x_offsets.append(offset_step_size * k)
+        base_y_offsets = base_x_offsets.copy()
+        mod_x_offsets, mod_y_offsets = np.meshgrid(base_x_offsets, base_y_offsets)
+        mod_x_offsets = mod_x_offsets.flatten()  # Transform into 1D arrays
+        mod_y_offsets = mod_y_offsets.flatten()
+        x_offsets.extend(mod_x_offsets)
+        y_offsets.extend(mod_y_offsets)
+
+        # Other parameters
+        scale = [s] * self.cells_per_module
+        rotation = [r] * self.cells_per_module
+        sharpness = [sharpnesses] * self.cells_per_module
+
+        b_color = mcolors.to_rgba(base_colors[j])   # Note: Colors will repeat for different rotations
+        shades = [(b_color[0] * (k / self.cells_per_module),
+                     b_color[1] * (k / self.cells_per_module),
+                     b_color[2] * (k / self.cells_per_module),
+                     1) for k in range(1, self.cells_per_module + 1)]
+
+        # Create module
+        self.modules.append(GC_Module(offsets_per_module**2, x_offsets, y_offsets, rotation, scale, sharpness, colors=shades))
+
+    self.n_cells = sum([m.n_cells for m in self.modules])
+    self.max_firing_rates = [8] * self.n_cells   # TODO: Make this scalable like in GC_Module
+
+  # Generate Grid Cell activities for given position
+  def activity(self, pos):
+    activity = []
+    for m in self.modules:
+      activity.extend(m.activity(pos))
+    return activity
+
+
+  def plot_peaks(self, x_range, y_range, pos=None, contours=False, fig=None, ax=None):
+    if ax is None:
+      fig, ax = plt.subplots()
+
+    for m in self.modules:
+      ax = m.plot_peaks(x_range, y_range, pos=pos, contours=contours, fig=fig, ax=ax)

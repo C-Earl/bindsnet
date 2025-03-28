@@ -5,21 +5,21 @@ import matplotlib.gridspec as gridspec
 import numpy as np
 import torch
 
-from Grid_Cells import GC_Module
+from Grid_Cells import GC_Population
 from STDP_Q_Learning import STDP_Q_Learning
 from Reservoir import Reservoir
 from Environment import Grid_Cell_Maze_Environment
 
 
 # Generate grid cell activity for each coordinate in the environment
-def grid_cell_activity_generator(maze_size, gc_m: GC_Module):
+def grid_cell_activity_generator(maze_size, gc_pop: GC_Population):
   # Generate the spike activity for each coordinate in the environment
   x_range, y_range = maze_size
-  activity = np.zeros((x_range, y_range, gc_m.n_cells))
+  activity = np.zeros((x_range, y_range, gc_pop.n_cells))
   for i in range(x_range):
     for j in range(y_range):
       pos = (i, j)
-      a = gc_m.activity(pos)
+      a = gc_pop.activity(pos)
       activity[i, j] = a
   return activity
 
@@ -83,11 +83,14 @@ def run(parameters: dict):
   PLOT = parameters['plot']
   ANIMATE_TRAINING = parameters['animate_training']
   MAZE_SIZE = parameters['maze_size']
-  NUM_CELLS = parameters['num_cells']
-  X_OFFSETS = parameters['x_offsets']
-  Y_OFFSETS = parameters['y_offsets']
-  ROTATIONS = parameters['rotations']
+  # NUM_CELLS = parameters['num_cells']
+  # X_OFFSETS = parameters['x_offsets']
+  # Y_OFFSETS = parameters['y_offsets']
   SCALES = parameters['scales']
+  ROTATIONS = parameters['rotations']
+  NUM_MODULES = parameters['num_modules']
+  OFFSETS_PER_MODULE = parameters['offsets_per_module']
+  GLOBAL_SCALE = parameters['global_scale']
   SHARPNESSES = parameters['sharpness']
   SIM_TIME = parameters['sim_time']
   EXC_SIZE = parameters['exc_size']
@@ -105,11 +108,12 @@ def run(parameters: dict):
   NUM_EPISODES = parameters['episodes']
 
   ## Grid Cell activity generator ##
-  gc_m = GC_Module(NUM_CELLS, X_OFFSETS, Y_OFFSETS, ROTATIONS, SCALES, SHARPNESSES)
-  gc_activity = grid_cell_activity_generator(MAZE_SIZE, gc_m)
+  # gc_m = GC_Module(NUM_CELLS, X_OFFSETS, Y_OFFSETS, ROTATIONS, SCALES, SHARPNESSES)
+  gc_pop = GC_Population(NUM_MODULES, OFFSETS_PER_MODULE, GLOBAL_SCALE, SCALES, ROTATIONS, SHARPNESSES)
+  gc_activity = grid_cell_activity_generator(MAZE_SIZE, gc_pop)
 
   ## Convert Grid Cell activity to spike trains ##
-  gc_spike_trains = spike_train_generator(gc_activity, sim_time=1000, max_firing_rates=gc_m.max_firing_rates)
+  gc_spike_trains = spike_train_generator(gc_activity, sim_time=1000, max_firing_rates=gc_pop.max_firing_rates)
 
   # Plot the grid cell spike trains
   # Also calculate the diversity in grid cell activity
@@ -126,7 +130,7 @@ def run(parameters: dict):
         ax.set_xticks([])
         ax.set_yticks([])
         ax.set_title(f"({i}, {j})")
-    gc_m.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax)
+    gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax)
     fp_ax.set_title("Grid Cell Firing Peaks")
     # fig.tight_layout()
 
@@ -142,14 +146,15 @@ def run(parameters: dict):
     plt.show()
 
   ## Push spike trains through association area ##
-  w_in_exc = generate_weights(NUM_CELLS, EXC_SIZE, SPARSITIES['in_exc'], RANGES['in_exc'])
-  w_in_inh = generate_weights(NUM_CELLS, INH_SIZE, SPARSITIES['in_inh'], RANGES['in_inh'])
+  n_cells = gc_pop.n_cells
+  w_in_exc = generate_weights(n_cells, EXC_SIZE, SPARSITIES['in_exc'], RANGES['in_exc'])
+  w_in_inh = generate_weights(n_cells, INH_SIZE, SPARSITIES['in_inh'], RANGES['in_inh'])
   w_exc_exc = generate_weights(EXC_SIZE, EXC_SIZE, SPARSITIES['exc_exc'], RANGES['exc_exc'])
   w_exc_inh = generate_weights(EXC_SIZE, INH_SIZE, SPARSITIES['exc_inh'], RANGES['exc_inh'])
   w_inh_exc = -generate_weights(INH_SIZE, EXC_SIZE, SPARSITIES['inh_exc'], RANGES['inh_exc'])
   w_inh_inh = -generate_weights(INH_SIZE, INH_SIZE, SPARSITIES['inh_inh'], RANGES['inh_inh'])
   reservoir = Reservoir(
-             in_size=NUM_CELLS,
+             in_size=n_cells,
              exc_size=EXC_SIZE,
              inh_size=INH_SIZE,
              w_in_exc=w_in_exc,
@@ -257,18 +262,51 @@ def run(parameters: dict):
 
 
 if __name__ == '__main__':
-  NUM_CELLS = 100
+  # primes = np.array([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,])
+  # num_modules = 5    # First 5 primes
+  # offsets_per_module = 5  # 5 GC per module
+  # global_scale = 0.25  # How much to scale the entire grid cell system
+  # NUM_CELLS = num_modules * offsets_per_module**2
+  #
+  # ## Scale entire system ##
+  # primes = primes * global_scale
+  #
+  # ## Offsets ##
+  # x_offsets = []
+  # y_offsets = []
+  # for i in range(num_modules):
+  #   p = primes[i]
+  #   offset_step_size = p / offsets_per_module
+  #   base_x_offsets = []
+  #   for j in range(1, offsets_per_module+1):
+  #     base_x_offsets.append(offset_step_size*j)
+  #   base_y_offsets = base_x_offsets.copy()
+  #   mod_x_offsets, mod_y_offsets = np.meshgrid(base_x_offsets, base_y_offsets)
+  #   mod_x_offsets = mod_x_offsets.flatten()   # Transform into 1D arrays
+  #   mod_y_offsets = mod_y_offsets.flatten()
+  #   x_offsets.extend(mod_x_offsets)
+  #   y_offsets.extend(mod_y_offsets)
+  #
+  # ## Scales ##
+  # scales = np.ones(NUM_CELLS)
+  # for i in range(num_modules):
+  #   p = primes[i]
+  #   scales[i*num_modules**2:(i+1)*num_modules**2] = p
+  #
+  # rotations = [0] * NUM_CELLS
+  # sharpness = [1] * NUM_CELLS
+  primes = np.array([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,])
   np.random.seed(1)
   p = {
     'plot': True,
     'animate_training': True,
-    'maze_size': (3, 3),
-    'num_cells': NUM_CELLS,
-    'x_offsets': np.random.uniform(-1, 1, NUM_CELLS),
-    'y_offsets': np.random.uniform(-1, 1, NUM_CELLS),
-    'rotations': np.random.uniform(-np.pi, np.pi, NUM_CELLS),
-    'scales': np.random.uniform(1, 3, NUM_CELLS),
-    'sharpness': np.ones(NUM_CELLS)*2,    # Should *not* go below 1
+    'maze_size': (5, 5),
+    'num_modules': 2,
+    'offsets_per_module': 3,
+    'scales': primes,
+    'global_scale': 0.25,
+    'rotations': [0, np.pi/4, np.pi/2, 3*np.pi/4],
+    'sharpness': 1,    # Should *not* go below 1
     'sim_time': 1000, # ms
     'exc_size': 100,
     'inh_size': 25,
@@ -285,7 +323,7 @@ if __name__ == '__main__':
       "inh_tc_theta_decay": 10_000,
       "inh_theta_plus": 0,
       "inh_thresh": -60,
-      "refrac_out": 5,
+      "refrac_out": 1,
       "reset_out": -64,
       "tc_decay_out": 10_000,
       "tc_theta_decay_out": 10_000,
