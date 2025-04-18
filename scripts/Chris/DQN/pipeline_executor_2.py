@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import count
 
 import matplotlib.pyplot as plt
@@ -64,6 +65,21 @@ def diversity(spike_trains: np.array):
   return correlations
 
 
+# Determine which pre-synaptic neuron is most relevant
+# Return index of top n most relevant (non-zero) neurons
+def relevant_neurons(spike_train: torch.tensor, n: int):
+  total_spikes = spike_train.sum(axis=1)
+  top_n_indices = np.argpartition(total_spikes, -n)[-n:]
+  sorted_indices = top_n_indices[np.argsort(total_spikes[top_n_indices])][::-1]
+  returned_indices = []
+  firing_rates = []
+  for ind in sorted_indices:
+    if total_spikes[ind] > 4:
+      returned_indices.append(ind)
+      firing_rates.append(total_spikes[ind])
+  return returned_indices, firing_rates
+
+
 def generate_weights(in_size, out_size, sparsity, range):
   wmin, wmax = range
   # w = np.random.uniform(0, 1, (in_size, out_size))
@@ -76,6 +92,15 @@ def generate_weights(in_size, out_size, sparsity, range):
   w *= wmax
   w = w.reshape(in_size, out_size)
   return w
+
+
+# # One one synapse per out neuron
+# def generate_res_out_weights(in_size, out_size):
+#   w = np.zeros((in_size, out_size))
+#   for i in range(in_size):
+#     j = np.random.randint(0, out_size)
+#     w[i, j] = 1
+#   return w
 
 
 def run(parameters: dict):
@@ -117,33 +142,22 @@ def run(parameters: dict):
 
   # Plot the grid cell spike trains
   # Also calculate the diversity in grid cell activity
-  if PLOT:
-    # Spike trains + Firing Peaks
-    fig = plt.figure(figsize=(5, 5))
-    gs = fig.add_gridspec(MAZE_SIZE[0], MAZE_SIZE[1]*2)
-    fp_ax = fig.add_subplot(gs[:, MAZE_SIZE[1]:])   # firing peak axis
-    for i in range(MAZE_SIZE[0]):
-      for j in range(MAZE_SIZE[1]):
-        fp_ax.plot(i, j, '+', color='black')
-        ax = fig.add_subplot(gs[i, j])
-        ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_title(f"({i}, {j})")
-    gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax)
-    fp_ax.set_title("Grid Cell Firing Peaks")
+  # if PLOT:
+  #   # Spike trains + Firing Peaks
+  #   fig = plt.figure(figsize=(5, 5))
+  #   gs = fig.add_gridspec(MAZE_SIZE[0], MAZE_SIZE[1]*2)
+  #   fp_ax = fig.add_subplot(gs[:, MAZE_SIZE[1]:])   # firing peak axis
+  #   for i in range(MAZE_SIZE[0]):
+  #     for j in range(MAZE_SIZE[1]):
+  #       fp_ax.plot(i, j, '+', color='black')
+  #       ax = fig.add_subplot(gs[i, j])
+  #       ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
+  #       ax.set_xticks([])
+  #       ax.set_yticks([])
+  #       ax.set_title(f"({i}, {j})")
+  #   gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax)
+  #   fp_ax.set_title("Grid Cell Firing Peaks")
     # fig.tight_layout()
-
-    # Diversity
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111)
-    d = diversity(gc_spike_trains)
-    im = ax.imshow(d, cmap='viridis')
-    fig.colorbar(im)
-    anti_diag = ~np.eye(d.shape[0], dtype=bool)  # Anti-diagonal elements
-    avg_div = np.mean(np.abs(d[anti_diag]))    # Average diversity without diagonal
-    ax.set_title(f"Avg. Diversity: {avg_div:.2f}")
-    plt.show()
 
   ## Push spike trains through association area ##
   n_cells = gc_pop.n_cells
@@ -173,25 +187,53 @@ def run(parameters: dict):
   # Plot reservoir spike trains
   # Also calculate the diversity in reservoir activity
   if PLOT:
-    fig = plt.figure(figsize=(5, 5))
-    gs = fig.add_gridspec(MAZE_SIZE[0], MAZE_SIZE[1]*2)
-    div_ax = fig.add_subplot(gs[:, MAZE_SIZE[1]:])   # firing peak axis
+    fig = plt.figure(figsize=(11, 11))
+    gs = fig.add_gridspec(MAZE_SIZE[0]*2+1, MAZE_SIZE[1]*2+1)
+    fp_ax = fig.add_subplot(gs[:MAZE_SIZE[0], :MAZE_SIZE[1]])
+    gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax, ) # contours=True, pos=(0, 1))
+
     for i in range(MAZE_SIZE[0]):
       for j in range(MAZE_SIZE[1]):
-        ax = fig.add_subplot(gs[i, j])
+        ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j])
+        ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
+        ax.set_xticks([])
+        ax.set_yticks([])
+    for i in range(MAZE_SIZE[0]):
+      for j in range(MAZE_SIZE[1]):
+        ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j+MAZE_SIZE[1]+1])
         ax.imshow(res_spike_trains[i, j].T, aspect='auto', cmap='binary', interpolation=None)
         ax.set_xticks([])
         ax.set_yticks([])
-    # Diversity
-    d = diversity(res_spike_trains.numpy())
-    im = div_ax.imshow(d, cmap='viridis')
-    fig.colorbar(im)
-    anti_diag = ~np.eye(d.shape[0], dtype=bool)  # Anti-diagonal elements
-    avg_div = np.mean(np.abs(d[anti_diag]))  # Average diversity without diagonal
-    div_ax.set_title(f"Avg. Diversity: {avg_div:.2f}")
+
+    plt.savefig("spike_trains.png", dpi=1000)
     plt.show()
 
+  ## Analyze GC activity ##
+  rel_neurons = {}
+  used_neurons = defaultdict(list)
+  for i in range(MAZE_SIZE[0]):   # Calculate relevant neurons for each position
+    for j in range(MAZE_SIZE[1]):
+      top_neurons, firing_rates = relevant_neurons(gc_spike_trains[i, j], 50)
+      rel_neurons[(i, j)] = (top_neurons, firing_rates)
+      print(f"Position: ({i, j}), \n\tTop Neurons: {top_neurons}, \n\tFiring Rates: {firing_rates}")
+      # Find overlaps in relevant neurons
+      for neuron in top_neurons:
+        used_neurons[neuron].append((i, j))
+  for neuron, positions in used_neurons.items():
+    print(f"Neuron {neuron} is relevant in positions {positions}")
 
+  # Check if any two positions share 2 or more relevant neurons
+  rel_list = list(rel_neurons.items())
+  for i in range(len(rel_list)):
+    for j in range(i+1, len(rel_list)):
+      pos1, data1 = rel_list[i]
+      pos2, data2 = rel_list[j]
+      if pos1 != pos2:
+        overlap = set(data1[0]) & set(data2[0])
+        if len(overlap) >= 2:
+          print(f"Positions {pos1} and {pos2} share {overlap} neurons.")
+
+  exit()
   ## Perform Q-Learning ##
   w_exc_out = generate_weights(EXC_SIZE+INH_SIZE, 4, SPARSITIES['exc_out'], RANGES['exc_out'])
   w_out_out = generate_weights(4, 4, SPARSITIES['out_out'], RANGES['out_out'])
@@ -238,10 +280,18 @@ def run(parameters: dict):
         model.plot_spikes(ax=spikes_ax, spikes=state)
         env.plot(coords, q_table=model.q_table, ax=maze_ax)
         plt.tight_layout()
-        plt.pause(0.1)
+        plt.pause(0.00001)
       action, out_spikes = model.select_action(state, SIM_TIME)
       new_state, reward, terminated, new_coords = env.step(action)
-      delta_Q = model.Q_Learning(coords, action, reward, new_state)   # Alternatively with new_state rather than coords
+
+      # ## TODO: Spaghetti code!
+      # if len(history) > 5:
+      #   avg_reward = np.mean([h[2] for h in history[-5:]])
+      #   modular_learning_rate = 0.1 * (((avg_reward - 1)**2) / 4)
+      #   model.lr = modular_learning_rate
+      # ## TODO: Spaghetti code!
+
+      delta_Q = model.Q_Learning(coords, action, reward, new_coords)   # Alternatively with new_state rather than coords
       # delta_Q = model.Q_Learning(new_state, action, reward, new_state)
       model.STDP_RL(reward, state, out_spikes)
       model.reset_state_variables()
@@ -299,24 +349,24 @@ if __name__ == '__main__':
   np.random.seed(1)
   p = {
     'plot': True,
-    'animate_training': True,
+    'animate_training': False,
     'maze_size': (5, 5),
-    'num_modules': 2,
-    'offsets_per_module': 3,
+    'num_modules': 5,
+    'offsets_per_module': 5,
     'scales': primes,
     'global_scale': 0.25,
-    'rotations': [0, np.pi/4, np.pi/2, 3*np.pi/4],
+    'rotations': [0, 1.5, 2],
     'sharpness': 1,    # Should *not* go below 1
     'sim_time': 1000, # ms
-    'exc_size': 100,
-    'inh_size': 25,
+    'exc_size': 500,
+    'inh_size': 1,
     'hyperparams': {
       "exc_refrac": 1,
-      "exc_reset": -64,
-      "exc_tc_decay": 10_000,
+      "exc_reset": -64,   # Base
+      "exc_tc_decay": 12,  # AND decay for 20ms interval @ 11mv threshold
       "exc_tc_theta_decay": 10_000,
       "exc_theta_plus": 0,
-      "exc_thresh": -60,
+      "exc_thresh": -53,  # 11mv threshold
       "inh_refrac": 1,
       "inh_reset": -64,
       "inh_tc_decay": 10_000,
@@ -331,7 +381,7 @@ if __name__ == '__main__':
       "thresh_out": -60,
     },
     'ranges': {
-      'in_exc': (0, 1),
+      'in_exc': (0, 10),
       'in_inh': (0, 1),
       'exc_exc': (0, 1),
       'exc_inh': (0, 1),
@@ -354,8 +404,8 @@ if __name__ == '__main__':
     'alpha': 0.1,   # Q-Table learning rate
     'gamma': 0.9,   # Q-Table discount factor (how much future rewards are discounted)
     'decay': 0.1,   # Synaptic decay (UNUSED)
-    'lr': 0.1,      # Weight update learning rateq
-    'trace_length': 15,
+    'lr': 0.01,      # Weight update learning rate
+    'trace_length': 0,
     'env_path': 'env.pkl',
     'max_steps': 1000,
     'episodes': 100,

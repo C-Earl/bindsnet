@@ -129,7 +129,7 @@ class Grid_Cell:
     for i in range(plt_indices.shape[0]):
       for j in range(plt_indices.shape[1]):
         x, y = plt_indices[i, j]
-        ax.plot(x, y, '.', alpha=1, color=color)
+        ax.plot(x, y, '.', alpha=1, color=color, markersize=1)
     ax.set_xlim(x_range[0], x_range[1])
     ax.set_ylim(y_range[0], y_range[1])
 
@@ -144,7 +144,7 @@ class Grid_Cell:
           X, Y = np.meshgrid(x_r, y_r)
           Z = mvn.pdf(np.dstack((X, Y)))
           Z = Z / self.max_activity
-          cont_map = ax.contour(X, Y, Z, levels=20)
+          cont_map = ax.contour(X, Y, Z, levels=10)
       fig.colorbar(cont_map)
 
     # Plot position
@@ -162,7 +162,8 @@ class Grid_Cell:
     y_r = np.linspace(y - self.scale, y + self.scale, 100)
     X, Y = np.meshgrid(x_r, y_r)
     Z = mvn.pdf(np.dstack((X, Y))) / self.max_activity
-    cont_map = ax.contour(X, Y, Z, levels=10)
+    levels = np.linspace(0.1, 1.0, 10)
+    cont_map = ax.contour(X, Y, Z, levels=levels)
     return cont_map
 
 
@@ -204,7 +205,7 @@ class GC_Module:
     if contours:
       for i, gc in enumerate(self.grid_cells):
         cont_map = gc.plot_closest_contour(pos, ax=ax)
-      fig.colorbar(cont_map)
+      # fig.colorbar(cont_map)
 
     # Plot position
     if pos:
@@ -262,7 +263,7 @@ class GC_Population:
         offset_step_size = s / offsets_per_module
         base_x_offsets = []
         for k in range(1, offsets_per_module + 1):
-         base_x_offsets.append(offset_step_size * k)
+          base_x_offsets.append((offset_step_size * k) + 5)    # +5 to avoid universal overlap at origin
         base_y_offsets = base_x_offsets.copy()
         mod_x_offsets, mod_y_offsets = np.meshgrid(base_x_offsets, base_y_offsets)
         mod_x_offsets = mod_x_offsets.flatten()  # Transform into 1D arrays

@@ -77,12 +77,20 @@ class STDP_Q_Learning(Network):
 
     ## STDP Parameters ##
     self.wmin, self.wmax = wmin, wmax
-    self.decay = decay
     self.lr = lr
+    self.synapse_change_monitor = torch.zeros(())
 
   def STDP_RL(self, reward: float, input_spikes, output_spikes):
     # Calculate STDP learning eligibility
     eligibility = torch.outer(input_spikes.sum(0), output_spikes.sum(0))
+
+    # Normalize eligibility so each presynaptic neuron (row) sums to 0
+    # Finite resource limitation
+    eligibility = eligibility - torch.mean(eligibility, dim=1, keepdim=True)
+
+    # Add noise to reward
+    # Exploration when reward is 0
+    reward += np.random.normal(0, 0.1)
 
     # Update weights according to reward and eligibility
     dw = self.lr * eligibility * reward
@@ -94,10 +102,10 @@ class STDP_Q_Learning(Network):
       self.q_table[state] = np.zeros(self.num_actions)
     if next_state not in self.q_table:
       self.q_table[next_state] = np.zeros(self.num_actions)
-    og_val = self.q_table[state][action]
+    org_val = self.q_table[state][action]
     next_max_val = self.q_table[next_state].max()
-    self.q_table[state][action] = og_val + self.alpha * (reward + self.gamma * next_max_val - og_val)
-    delta_q = self.q_table[state][action] - og_val
+    self.q_table[state][action] = org_val + self.alpha * (reward + self.gamma * next_max_val - org_val)
+    delta_q = self.q_table[state][action] - org_val
     return delta_q
 
   # Take in_spikes (association area spikes) and return action based on motor area spikes
