@@ -67,14 +67,14 @@ def diversity(spike_trains: np.array):
 
 # Determine which pre-synaptic neuron is most relevant
 # Return index of top n most relevant (non-zero) neurons
-def relevant_neurons(spike_train: torch.tensor, n: int):
+def relevant_neurons(spike_train: torch.tensor, n: int, threshold: int = 4):
   total_spikes = spike_train.sum(axis=1)
   top_n_indices = np.argpartition(total_spikes, -n)[-n:]
   sorted_indices = top_n_indices[np.argsort(total_spikes[top_n_indices])][::-1]
   returned_indices = []
   firing_rates = []
   for ind in sorted_indices:
-    if total_spikes[ind] > 4:
+    if total_spikes[ind] > threshold:
       returned_indices.append(ind)
       firing_rates.append(total_spikes[ind])
   return returned_indices, firing_rates
@@ -92,15 +92,6 @@ def generate_weights(in_size, out_size, sparsity, range):
   w *= wmax
   w = w.reshape(in_size, out_size)
   return w
-
-
-# # One one synapse per out neuron
-# def generate_res_out_weights(in_size, out_size):
-#   w = np.zeros((in_size, out_size))
-#   for i in range(in_size):
-#     j = np.random.randint(0, out_size)
-#     w[i, j] = 1
-#   return w
 
 
 def run(parameters: dict):
@@ -213,19 +204,44 @@ def run(parameters: dict):
   used_neurons = defaultdict(list)
   for i in range(MAZE_SIZE[0]):   # Calculate relevant neurons for each position
     for j in range(MAZE_SIZE[1]):
-      top_neurons, firing_rates = relevant_neurons(gc_spike_trains[i, j], 50)
+      top_neurons, firing_rates = relevant_neurons(gc_spike_trains[i, j], 25, threshold=4)
       rel_neurons[(i, j)] = (top_neurons, firing_rates)
       print(f"Position: ({i, j}), \n\tTop Neurons: {top_neurons}, \n\tFiring Rates: {firing_rates}")
       # Find overlaps in relevant neurons
       for neuron in top_neurons:
         used_neurons[neuron].append((i, j))
-  for neuron, positions in used_neurons.items():
-    print(f"Neuron {neuron} is relevant in positions {positions}")
+  # for neuron, positions in used_neurons.items():
+  #   print(f"Neuron {neuron} is relevant in positions {positions}")
 
   # Check if any two positions share 2 or more relevant neurons
   rel_list = list(rel_neurons.items())
   for i in range(len(rel_list)):
     for j in range(i+1, len(rel_list)):
+      pos1, data1 = rel_list[i]
+      pos2, data2 = rel_list[j]
+      if pos1 != pos2:
+        overlap = set(data1[0]) & set(data2[0])
+        if len(overlap) >= 2:
+          print(f"Positions {pos1} and {pos2} share {overlap} neurons.")
+
+  ## Analyze Reservoir activity ##
+  rel_neurons = {}
+  used_neurons = defaultdict(list)
+  for i in range(MAZE_SIZE[0]):  # Calculate relevant neurons for each position
+    for j in range(MAZE_SIZE[1]):
+      top_neurons, firing_rates = relevant_neurons(res_spike_trains[i, j].numpy(), 25, threshold=2)
+      rel_neurons[(i, j)] = (top_neurons, firing_rates)
+      print(f"Position: ({i, j}), \n\tTop Neurons: {top_neurons}, \n\tFiring Rates: {firing_rates}")
+      # Find overlaps in relevant neurons
+      for neuron in top_neurons:
+        used_neurons[neuron].append((i, j))
+  # for neuron, positions in used_neurons.items():
+  #   print(f"Neuron {neuron} is relevant in positions {positions}")
+
+  # Check if any two positions share 2 or more relevant neurons
+  rel_list = list(rel_neurons.items())
+  for i in range(len(rel_list)):
+    for j in range(i + 1, len(rel_list)):
       pos1, data1 = rel_list[i]
       pos2, data2 = rel_list[j]
       if pos1 != pos2:
@@ -351,8 +367,8 @@ if __name__ == '__main__':
     'plot': True,
     'animate_training': False,
     'maze_size': (5, 5),
-    'num_modules': 5,
-    'offsets_per_module': 5,
+    'num_modules': 4,
+    'offsets_per_module': 2,
     'scales': primes,
     'global_scale': 0.25,
     'rotations': [0, 1.5, 2],
@@ -374,11 +390,11 @@ if __name__ == '__main__':
       "inh_theta_plus": 0,
       "inh_thresh": -60,
       "refrac_out": 1,
-      "reset_out": -64,
-      "tc_decay_out": 10_000,
+      "reset_out": -64,  # Base
+      "tc_decay_out": 12,   # AND decay for 20ms interval @ 11mv threshold
       "tc_theta_decay_out": 10_000,
       "theta_plus_out": 0,
-      "thresh_out": -60,
+      "thresh_out": -53,  # 11mv threshold
     },
     'ranges': {
       'in_exc': (0, 10),
@@ -387,7 +403,7 @@ if __name__ == '__main__':
       'exc_inh': (0, 1),
       'inh_exc': (-1, 0),
       'inh_inh': (-1, 0),
-      'exc_out': (0, 1),
+      'exc_out': (0, 10),
       'out_out': (-1, -1),
 
     },
