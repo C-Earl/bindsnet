@@ -1,5 +1,6 @@
 from collections import defaultdict
 from itertools import count
+import pickle as pkl
 
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -67,10 +68,10 @@ def diversity(spike_trains: np.array):
 
 # Determine which pre-synaptic neuron is most relevant
 # Return index of top n most relevant (non-zero) neurons
-def relevant_neurons(spike_train: torch.tensor, n: int, threshold: int = 4):
+def relevant_neurons(spike_train: torch.tensor, threshold: int = 4):
   total_spikes = spike_train.sum(axis=1)
-  top_n_indices = np.argpartition(total_spikes, -n)[-n:]
-  sorted_indices = top_n_indices[np.argsort(total_spikes[top_n_indices])][::-1]
+  top_indices = np.where(total_spikes > threshold)[0]
+  sorted_indices = top_indices[np.argsort(total_spikes[top_indices])][::-1]
   returned_indices = []
   firing_rates = []
   for ind in sorted_indices:
@@ -80,17 +81,29 @@ def relevant_neurons(spike_train: torch.tensor, n: int, threshold: int = 4):
   return returned_indices, firing_rates
 
 
-def generate_weights(in_size, out_size, sparsity, range):
-  wmin, wmax = range
-  # w = np.random.uniform(0, 1, (in_size, out_size))
-  # sparsity_mask = np.random.choice([0, 1], w.shape, p=[1-sparsity, sparsity])
-  # w = np.random.choice([0, 1], size=(in_size, out_size), p=[1-sparsity, sparsity])
+# Generate random weights for the grid cell to reservoir connections
+def generate_grid_out_weights(in_size, out_size, sparsity, w_range):
+  wmin, wmax = w_range
   w = np.zeros(in_size * out_size)
   num_ones = int(sparsity * in_size * out_size)
   w[:num_ones] = 1
   np.random.shuffle(w)
-  w *= wmax
+  w *= wmax   # TODO: NOTE: currently ignores min range, all synapses start with same strength
   w = w.reshape(in_size, out_size)
+  return w
+
+# Generate random weights for the reservoir to output connections
+# Cumulative sum of weights for each pre-synaptic neuron (row) is equal to pre_synaptic_magnitude
+def generate_res_out_weights(in_size, out_size, pre_synaptic_magnitude, noise_scale=1):
+  # Base array of evenly distributed weights
+  base_val = pre_synaptic_magnitude / out_size
+  w = np.full((in_size, out_size), base_val)
+  # Add noise to weights
+  noise = 1 + noise_scale * (2 * np.random.rand(in_size, out_size) - 1)
+  w *= noise
+  # Renormalize
+  sum = w.sum(axis=1, keepdims=True)
+  w *= pre_synaptic_magnitude / sum
   return w
 
 
@@ -98,6 +111,8 @@ def run(parameters: dict):
   ## Run Parameters ##
   PLOT = parameters['plot']
   ANIMATE_TRAINING = parameters['animate_training']
+  SAVE_FILE = parameters['save_file']
+  LOAD_FROM_FILE = parameters['load_from_file']
   MAZE_SIZE = parameters['maze_size']
   # NUM_CELLS = parameters['num_cells']
   # X_OFFSETS = parameters['x_offsets']
@@ -111,6 +126,7 @@ def run(parameters: dict):
   SIM_TIME = parameters['sim_time']
   EXC_SIZE = parameters['exc_size']
   INH_SIZE = parameters['inh_size']
+  OUT_SIZE = parameters['out_size']
   HYPERPARAMS = parameters['hyperparams']
   SPARSITIES = parameters['sparsities']
   RANGES = parameters['ranges']
@@ -123,139 +139,137 @@ def run(parameters: dict):
   MAX_STEPS = parameters['max_steps']
   NUM_EPISODES = parameters['episodes']
 
-  ## Grid Cell activity generator ##
-  # gc_m = GC_Module(NUM_CELLS, X_OFFSETS, Y_OFFSETS, ROTATIONS, SCALES, SHARPNESSES)
-  gc_pop = GC_Population(NUM_MODULES, OFFSETS_PER_MODULE, GLOBAL_SCALE, SCALES, ROTATIONS, SHARPNESSES)
-  gc_activity = grid_cell_activity_generator(MAZE_SIZE, gc_pop)
+  if not LOAD_FROM_FILE:
+    ## Grid Cell activity generator ##
+    # gc_m = GC_Module(NUM_CELLS, X_OFFSETS, Y_OFFSETS, ROTATIONS, SCALES, SHARPNESSES)
+    gc_pop = GC_Population(NUM_MODULES, OFFSETS_PER_MODULE, GLOBAL_SCALE, SCALES, ROTATIONS, SHARPNESSES)
+    gc_activity = grid_cell_activity_generator(MAZE_SIZE, gc_pop)
 
-  ## Convert Grid Cell activity to spike trains ##
-  gc_spike_trains = spike_train_generator(gc_activity, sim_time=1000, max_firing_rates=gc_pop.max_firing_rates)
+    ## Convert Grid Cell activity to spike trains ##
+    gc_spike_trains = spike_train_generator(gc_activity, sim_time=1000, max_firing_rates=gc_pop.max_firing_rates)
 
-  # Plot the grid cell spike trains
-  # Also calculate the diversity in grid cell activity
-  # if PLOT:
-  #   # Spike trains + Firing Peaks
-  #   fig = plt.figure(figsize=(5, 5))
-  #   gs = fig.add_gridspec(MAZE_SIZE[0], MAZE_SIZE[1]*2)
-  #   fp_ax = fig.add_subplot(gs[:, MAZE_SIZE[1]:])   # firing peak axis
-  #   for i in range(MAZE_SIZE[0]):
-  #     for j in range(MAZE_SIZE[1]):
-  #       fp_ax.plot(i, j, '+', color='black')
-  #       ax = fig.add_subplot(gs[i, j])
-  #       ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
-  #       ax.set_xticks([])
-  #       ax.set_yticks([])
-  #       ax.set_title(f"({i}, {j})")
-  #   gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax)
-  #   fp_ax.set_title("Grid Cell Firing Peaks")
-    # fig.tight_layout()
-
-  ## Push spike trains through association area ##
-  n_cells = gc_pop.n_cells
-  w_in_exc = generate_weights(n_cells, EXC_SIZE, SPARSITIES['in_exc'], RANGES['in_exc'])
-  w_in_inh = generate_weights(n_cells, INH_SIZE, SPARSITIES['in_inh'], RANGES['in_inh'])
-  w_exc_exc = generate_weights(EXC_SIZE, EXC_SIZE, SPARSITIES['exc_exc'], RANGES['exc_exc'])
-  w_exc_inh = generate_weights(EXC_SIZE, INH_SIZE, SPARSITIES['exc_inh'], RANGES['exc_inh'])
-  w_inh_exc = -generate_weights(INH_SIZE, EXC_SIZE, SPARSITIES['inh_exc'], RANGES['inh_exc'])
-  w_inh_inh = -generate_weights(INH_SIZE, INH_SIZE, SPARSITIES['inh_inh'], RANGES['inh_inh'])
-  reservoir = Reservoir(
-             in_size=n_cells,
-             exc_size=EXC_SIZE,
-             inh_size=INH_SIZE,
-             w_in_exc=w_in_exc,
-             w_in_inh=w_in_inh,
-             w_exc_exc=w_exc_exc,
-             w_exc_inh=w_exc_inh,
-             w_inh_exc=w_inh_exc,
-             w_inh_inh=w_inh_inh,
-             hyper_params=HYPERPARAMS,)
-  res_spike_trains = torch.zeros(MAZE_SIZE[0], MAZE_SIZE[1], 1000, EXC_SIZE+INH_SIZE)
-  for i in range(MAZE_SIZE[0]):
-    for j in range(MAZE_SIZE[1]):
-      exc_spikes, inh_spikes = reservoir.get_spikes(gc_spike_trains[i, j], sim_time=1000)  # Run for 1 second
-      res_spike_trains[i, j] = torch.concat((exc_spikes, inh_spikes), dim=2).squeeze(1)  # (time, exc+inh)
-
-  # Plot reservoir spike trains
-  # Also calculate the diversity in reservoir activity
-  if PLOT:
-    fig = plt.figure(figsize=(11, 11))
-    gs = fig.add_gridspec(MAZE_SIZE[0]*2+1, MAZE_SIZE[1]*2+1)
-    fp_ax = fig.add_subplot(gs[:MAZE_SIZE[0], :MAZE_SIZE[1]])
-    gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax, ) # contours=True, pos=(0, 1))
-
+    ## Push spike trains through association area ##
+    n_cells = gc_pop.n_cells
+    w_in_exc = generate_grid_out_weights(n_cells, EXC_SIZE, SPARSITIES['in_exc'], RANGES['in_exc'])
+    w_in_inh = generate_grid_out_weights(n_cells, INH_SIZE, SPARSITIES['in_inh'], RANGES['in_inh'])
+    w_exc_exc = generate_grid_out_weights(EXC_SIZE, EXC_SIZE, SPARSITIES['exc_exc'], RANGES['exc_exc'])
+    w_exc_inh = generate_grid_out_weights(EXC_SIZE, INH_SIZE, SPARSITIES['exc_inh'], RANGES['exc_inh'])
+    w_inh_exc = -generate_grid_out_weights(INH_SIZE, EXC_SIZE, SPARSITIES['inh_exc'], RANGES['inh_exc'])
+    w_inh_inh = -generate_grid_out_weights(INH_SIZE, INH_SIZE, SPARSITIES['inh_inh'], RANGES['inh_inh'])
+    reservoir = Reservoir(
+               in_size=n_cells,
+               exc_size=EXC_SIZE,
+               inh_size=INH_SIZE,
+               w_in_exc=w_in_exc,
+               w_in_inh=w_in_inh,
+               w_exc_exc=w_exc_exc,
+               w_exc_inh=w_exc_inh,
+               w_inh_exc=w_inh_exc,
+               w_inh_inh=w_inh_inh,
+               hyper_params=HYPERPARAMS,)
+    res_spike_trains = torch.zeros(MAZE_SIZE[0], MAZE_SIZE[1], 1000, EXC_SIZE+INH_SIZE)
     for i in range(MAZE_SIZE[0]):
       for j in range(MAZE_SIZE[1]):
-        ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j])
-        ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
-        ax.set_xticks([])
-        ax.set_yticks([])
-    for i in range(MAZE_SIZE[0]):
+        exc_spikes, inh_spikes = reservoir.get_spikes(gc_spike_trains[i, j], sim_time=1000)  # Run for 1 second
+        res_spike_trains[i, j] = torch.concat((exc_spikes, inh_spikes), dim=2).squeeze(1)  # (time, exc+inh)
+
+    # Plot reservoir spike trains
+    # Also calculate the diversity in reservoir activity
+    if PLOT:
+      fig = plt.figure(figsize=(11, 11))
+      gs = fig.add_gridspec(MAZE_SIZE[0]*2+1, MAZE_SIZE[1]*2+1)
+      fp_ax = fig.add_subplot(gs[:MAZE_SIZE[0], :MAZE_SIZE[1]])
+      gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax, ) # contours=True, pos=(0, 1))
+      fp_ax.grid(True)
+
+      for i in range(MAZE_SIZE[0]):
+        for j in range(MAZE_SIZE[1]):
+          ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j])
+          ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
+          ax.set_xticks([])
+          ax.set_yticks([])
+      for i in range(MAZE_SIZE[0]):
+        for j in range(MAZE_SIZE[1]):
+          ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j+MAZE_SIZE[1]+1])
+          ax.imshow(res_spike_trains[i, j].T, aspect='auto', cmap='binary', interpolation=None)
+          ax.set_xticks([])
+          ax.set_yticks([])
+
+      plt.savefig("spike_trains.png", dpi=1000)
+      plt.show()
+
+    ## Analyze GC activity ##
+    print("################")
+    print("## Grid Cells ##")
+    print("################\n")
+    rel_neurons = {}
+    used_neurons = defaultdict(list)
+    for i in range(MAZE_SIZE[0]):   # Calculate relevant neurons for each position
       for j in range(MAZE_SIZE[1]):
-        ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j+MAZE_SIZE[1]+1])
-        ax.imshow(res_spike_trains[i, j].T, aspect='auto', cmap='binary', interpolation=None)
-        ax.set_xticks([])
-        ax.set_yticks([])
+        top_neurons, firing_rates = relevant_neurons(gc_spike_trains[i, j], threshold=4)
+        rel_neurons[(i, j)] = (top_neurons, firing_rates)
+        print(f"Position: ({i, j}), \n\tTop GCs: {top_neurons}, \n\tFiring Rates: {firing_rates}")
+        # Find overlaps in relevant neurons
+        for neuron in top_neurons:
+          used_neurons[neuron].append((i, j))
+    # for neuron, positions in used_neurons.items():
+    #   print(f"Neuron {neuron} is relevant in positions {positions}")
 
-    plt.savefig("spike_trains.png", dpi=1000)
-    plt.show()
+    # Check if any two positions share 2 or more relevant neurons
+    rel_list = list(rel_neurons.items())
+    for i in range(len(rel_list)):
+      for j in range(i+1, len(rel_list)):
+        pos1, data1 = rel_list[i]
+        pos2, data2 = rel_list[j]
+        if pos1 != pos2:
+          overlap = set(data1[0]) & set(data2[0])
+          if len(overlap) >= 2:
+            print(f"Positions {pos1} and {pos2} share {overlap} Grid Cells.")
 
-  ## Analyze GC activity ##
-  rel_neurons = {}
-  used_neurons = defaultdict(list)
-  for i in range(MAZE_SIZE[0]):   # Calculate relevant neurons for each position
-    for j in range(MAZE_SIZE[1]):
-      top_neurons, firing_rates = relevant_neurons(gc_spike_trains[i, j], 25, threshold=4)
-      rel_neurons[(i, j)] = (top_neurons, firing_rates)
-      print(f"Position: ({i, j}), \n\tTop Neurons: {top_neurons}, \n\tFiring Rates: {firing_rates}")
-      # Find overlaps in relevant neurons
-      for neuron in top_neurons:
-        used_neurons[neuron].append((i, j))
-  # for neuron, positions in used_neurons.items():
-  #   print(f"Neuron {neuron} is relevant in positions {positions}")
+    ## Analyze Reservoir activity ##
+    print("\n#####################")
+    print("## Reservoir Cells ##")
+    print("#####################\n")
+    rel_neurons = {}
+    used_neurons = defaultdict(list)
+    for i in range(MAZE_SIZE[0]):  # Calculate relevant neurons for each position
+      for j in range(MAZE_SIZE[1]):
+        # NOTE: res_spike_trains is of shape (time, exc+inh), so we need to transpose it
+        top_neurons, firing_rates = relevant_neurons(res_spike_trains[i, j].T.numpy(), threshold=4)
+        rel_neurons[(i, j)] = (top_neurons, firing_rates)
+        print(f"Position: ({i, j}), \n\tTop Res Neurons: {top_neurons}, \n\tFiring Rates: {firing_rates}")
+        # Find overlaps in relevant neurons
+        for neuron in top_neurons:
+          used_neurons[neuron].append((i, j))
+    # for neuron, positions in used_neurons.items():
+    #   print(f"Neuron {neuron} is relevant in positions {positions}")
 
-  # Check if any two positions share 2 or more relevant neurons
-  rel_list = list(rel_neurons.items())
-  for i in range(len(rel_list)):
-    for j in range(i+1, len(rel_list)):
-      pos1, data1 = rel_list[i]
-      pos2, data2 = rel_list[j]
-      if pos1 != pos2:
-        overlap = set(data1[0]) & set(data2[0])
-        if len(overlap) >= 2:
-          print(f"Positions {pos1} and {pos2} share {overlap} neurons.")
+    # Check if any two positions share 2 or more relevant neurons
+    rel_list = list(rel_neurons.items())
+    for i in range(len(rel_list)):
+      for j in range(i + 1, len(rel_list)):
+        pos1, data1 = rel_list[i]
+        pos2, data2 = rel_list[j]
+        if pos1 != pos2:
+          overlap = set(data1[0]) & set(data2[0])
+          if len(overlap) >= 2:
+            print(f"Positions {pos1} and {pos2} share {overlap} neurons.")
 
-  ## Analyze Reservoir activity ##
-  rel_neurons = {}
-  used_neurons = defaultdict(list)
-  for i in range(MAZE_SIZE[0]):  # Calculate relevant neurons for each position
-    for j in range(MAZE_SIZE[1]):
-      top_neurons, firing_rates = relevant_neurons(res_spike_trains[i, j].numpy(), 25, threshold=2)
-      rel_neurons[(i, j)] = (top_neurons, firing_rates)
-      print(f"Position: ({i, j}), \n\tTop Neurons: {top_neurons}, \n\tFiring Rates: {firing_rates}")
-      # Find overlaps in relevant neurons
-      for neuron in top_neurons:
-        used_neurons[neuron].append((i, j))
-  # for neuron, positions in used_neurons.items():
-  #   print(f"Neuron {neuron} is relevant in positions {positions}")
+    if SAVE_FILE:
+      with open(f"saves/{SAVE_FILE}", "wb") as f:
+        pkl.dump(res_spike_trains, f)
 
-  # Check if any two positions share 2 or more relevant neurons
-  rel_list = list(rel_neurons.items())
-  for i in range(len(rel_list)):
-    for j in range(i + 1, len(rel_list)):
-      pos1, data1 = rel_list[i]
-      pos2, data2 = rel_list[j]
-      if pos1 != pos2:
-        overlap = set(data1[0]) & set(data2[0])
-        if len(overlap) >= 2:
-          print(f"Positions {pos1} and {pos2} share {overlap} neurons.")
+  else:
+    with open(f"saves/{LOAD_FROM_FILE}", "rb") as f:
+      res_spike_trains = pkl.load(f)
 
-  exit()
   ## Perform Q-Learning ##
-  w_exc_out = generate_weights(EXC_SIZE+INH_SIZE, 4, SPARSITIES['exc_out'], RANGES['exc_out'])
-  w_out_out = generate_weights(4, 4, SPARSITIES['out_out'], RANGES['out_out'])
+  exit()
+  w_exc_out = generate_res_out_weights(EXC_SIZE + INH_SIZE, OUT_SIZE, 10)    # TODO: Temporary manual weight generation
+  w_out_out = np.zeros((OUT_SIZE, OUT_SIZE))
   model = STDP_Q_Learning(
     in_size=EXC_SIZE+INH_SIZE,
-    out_size=4,
+    out_size=OUT_SIZE,
     w_exc_out=w_exc_out,
     w_out_out=w_out_out,
     alpha=ALPHA,
@@ -328,61 +342,31 @@ def run(parameters: dict):
 
 
 if __name__ == '__main__':
-  # primes = np.array([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,])
-  # num_modules = 5    # First 5 primes
-  # offsets_per_module = 5  # 5 GC per module
-  # global_scale = 0.25  # How much to scale the entire grid cell system
-  # NUM_CELLS = num_modules * offsets_per_module**2
-  #
-  # ## Scale entire system ##
-  # primes = primes * global_scale
-  #
-  # ## Offsets ##
-  # x_offsets = []
-  # y_offsets = []
-  # for i in range(num_modules):
-  #   p = primes[i]
-  #   offset_step_size = p / offsets_per_module
-  #   base_x_offsets = []
-  #   for j in range(1, offsets_per_module+1):
-  #     base_x_offsets.append(offset_step_size*j)
-  #   base_y_offsets = base_x_offsets.copy()
-  #   mod_x_offsets, mod_y_offsets = np.meshgrid(base_x_offsets, base_y_offsets)
-  #   mod_x_offsets = mod_x_offsets.flatten()   # Transform into 1D arrays
-  #   mod_y_offsets = mod_y_offsets.flatten()
-  #   x_offsets.extend(mod_x_offsets)
-  #   y_offsets.extend(mod_y_offsets)
-  #
-  # ## Scales ##
-  # scales = np.ones(NUM_CELLS)
-  # for i in range(num_modules):
-  #   p = primes[i]
-  #   scales[i*num_modules**2:(i+1)*num_modules**2] = p
-  #
-  # rotations = [0] * NUM_CELLS
-  # sharpness = [1] * NUM_CELLS
   primes = np.array([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,])
-  np.random.seed(1)
+  np.random.seed(2)
   p = {
     'plot': True,
-    'animate_training': False,
+    'animate_training': True,
+    'save_file': "1000_res.pkl",
+    'load_from_file': None,
     'maze_size': (5, 5),
-    'num_modules': 4,
-    'offsets_per_module': 2,
+    'num_modules': 5,
+    'offsets_per_module': 3,
     'scales': primes,
     'global_scale': 0.25,
-    'rotations': [0, 1.5, 2],
-    'sharpness': 1,    # Should *not* go below 1
+    'rotations': [0, np.pi/3, (np.pi/3)*2, np.pi],
+    'sharpness': 1.25,    # Should *not* go below 1
     'sim_time': 1000, # ms
-    'exc_size': 500,
+    'exc_size': 3000,
     'inh_size': 1,
+    'out_size': 100*4,
     'hyperparams': {
       "exc_refrac": 1,
       "exc_reset": -64,   # Base
-      "exc_tc_decay": 12,  # AND decay for 20ms interval @ 11mv threshold
+      "exc_tc_decay": 20,  # AND decay for 20ms interval @ 15mv threshold
       "exc_tc_theta_decay": 10_000,
       "exc_theta_plus": 0,
-      "exc_thresh": -53,  # 11mv threshold
+      "exc_thresh": -49,  #
       "inh_refrac": 1,
       "inh_reset": -64,
       "inh_tc_decay": 10_000,
@@ -397,18 +381,18 @@ if __name__ == '__main__':
       "thresh_out": -53,  # 11mv threshold
     },
     'ranges': {
-      'in_exc': (0, 10),
+      'in_exc': (0, 6.5),
       'in_inh': (0, 1),
       'exc_exc': (0, 1),
       'exc_inh': (0, 1),
       'inh_exc': (-1, 0),
       'inh_inh': (-1, 0),
-      'exc_out': (0, 10),
+      'exc_out': (0, 5),   # NOTE: Currently ignored
       'out_out': (-1, -1),
 
     },
     'sparsities': {
-      'in_exc': 0.05,
+      'in_exc': 0.12,
       'in_inh': 0.0,
       'exc_exc': 0.0,
       'exc_inh': 0.0,
@@ -419,9 +403,9 @@ if __name__ == '__main__':
     },
     'alpha': 0.1,   # Q-Table learning rate
     'gamma': 0.9,   # Q-Table discount factor (how much future rewards are discounted)
-    'decay': 0.1,   # Synaptic decay (UNUSED)
-    'lr': 0.01,      # Weight update learning rate
-    'trace_length': 0,
+    'decay': 0.5,   # Synaptic decay (UNUSED)
+    'lr': 0.1,      # Weight update learning rate
+    'trace_length': 11,
     'env_path': 'env.pkl',
     'max_steps': 1000,
     'episodes': 100,

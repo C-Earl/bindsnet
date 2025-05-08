@@ -5,7 +5,7 @@ from bindsnet.network import Network
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import Input, AdaptiveLIFNodes
 from bindsnet.network.topology import MulticompartmentConnection
-from bindsnet.network.topology_features import Weight
+from bindsnet.network.topology_features import Weight, Mask
 
 
 # Class for a spiking neural network that uses STDP and Q-Learning to learn
@@ -55,9 +55,10 @@ class STDP_Q_Learning(Network):
 
     ## Connections ##
     in_out_wfeat = Weight(name='in_out_weight_feature', value=torch.Tensor(w_exc_out))
+    in_out_mask = Mask(name='in_out_mask', value=torch.Tensor(w_exc_out != 0).bool())
     in_out_conn = MulticompartmentConnection(
       source=input, target=output,
-      device=device, pipeline=[in_out_wfeat],
+      device=device, pipeline=[in_out_wfeat, in_out_mask],
     )
     out_out_wfeat = Weight(name='out_out_weight_feature', value=torch.Tensor(w_out_out))
     out_out_conn = MulticompartmentConnection(
@@ -81,19 +82,25 @@ class STDP_Q_Learning(Network):
     self.synapse_change_monitor = torch.zeros(())
 
   def STDP_RL(self, reward: float, input_spikes, output_spikes):
+    # If all out spikes are the same, learning is impossible
+    # Handle by adding a small random value to the weights
+    if (output_spikes == output_spikes[0]).all():
+      output_spikes += torch.rand_like(output_spikes)
+
+
     # Calculate STDP learning eligibility
     eligibility = torch.outer(input_spikes.sum(0), output_spikes.sum(0))
 
-    # Normalize eligibility so each presynaptic neuron (row) sums to 0
-    # Finite resource limitation
-    eligibility = eligibility - torch.mean(eligibility, dim=1, keepdim=True)
+    ## Pre-synaptic resource limitation ##
+    # Subtract row-wise mean eligibility for each row (pre-synaptic neuron)
+    mean_eligibility = eligibility.mean(1, keepdim=True)
+    eligibility -= mean_eligibility
 
-    # Add noise to reward
-    # Exploration when reward is 0
-    reward += np.random.normal(0, 0.1)
+    if reward == 0:
+      reward
 
-    # Update weights according to reward and eligibility
     dw = self.lr * eligibility * reward
+    dw = dw * self.w_mask
     self.weights.value += dw
     self.weights.value = torch.clamp(self.weights.value, self.wmin, self.wmax)
 
@@ -116,12 +123,9 @@ class STDP_Q_Learning(Network):
     # If no spikes, return random action
     # Artificial spikes to encourage STDP learning
     if torch.max(out_spikes) == 0:
-      action = np.random.randint(self.num_actions)
-      out_spikes = torch.zeros_like(out_spikes)
-      motor_pop_range = (action * self.motor_pop_size, (action + 1) * self.motor_pop_size)
-      out_spikes[:, motor_pop_range[0]:motor_pop_range[1]] = torch.rand(sim_time, self.motor_pop_size) < 0.05
+      raise Exception("No spikes in output layer")
     else:
-      summed_spikes = out_spikes.sum(0)
+      summed_spikes = out_spikes.reshape(sim_time, self.num_actions, self.motor_pop_size).sum(2).sum(0)
       max_val = summed_spikes.numpy().max()
       max_inds = np.where(summed_spikes == max_val)[0]
       action = max_inds[np.random.randint(0, len(max_inds))]
