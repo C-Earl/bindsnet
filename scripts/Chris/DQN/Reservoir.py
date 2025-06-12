@@ -105,3 +105,73 @@ class Reservoir(Network):
     exc_spikes = self.exc_monitor.get('s')
     inh_spikes = self.inh_monitor.get('s')
     return exc_spikes, inh_spikes
+
+
+class ANDReservoir(Network):
+  def __init__(self,
+               in_size: int,  # Number of input neurons
+               AND1_size: int,  # Number of neurons in AND1 layer
+               AND2_size: int,  # Number of neurons in AND2 layer
+               w_in_AND1: np.ndarray,
+               w_AND1_AND2: np.ndarray,
+               hyper_params: dict,  # Dictionary of hyperparameters
+               device: str = 'cpu'):
+    super().__init__()
+
+    ## Layers ##
+    input = Input(n=in_size)
+    AND1 = AdaptiveLIFNodes(
+      n=AND1_size,
+      thresh=hyper_params['AND1_thresh'],
+      theta_plus=hyper_params['AND1_theta_plus'],
+      refrac=hyper_params['AND1_refrac'],
+      reset=hyper_params['AND1_reset'],
+      tc_theta_decay=hyper_params['AND1_tc_theta_decay'],
+      tc_decay=hyper_params['AND1_tc_decay'],
+      traces=True,
+    )
+    AND1_monitor = Monitor(AND1, ["s"], device=device)
+    self.add_monitor(AND1_monitor, name='AND1')
+    self.AND1_monitor = AND1_monitor
+    AND2 = AdaptiveLIFNodes(
+      n=AND2_size,
+      thresh=hyper_params['AND2_thresh'],
+      theta_plus=hyper_params['AND2_theta_plus'],
+      refrac=hyper_params['AND2_refrac'],
+      reset=hyper_params['AND2_reset'],
+      tc_theta_decay=hyper_params['AND2_tc_theta_decay'],
+      tc_decay=hyper_params['AND2_tc_decay'],
+      traces=True,
+    )
+    AND2_monitor = Monitor(AND2, ["s"], device=device)
+    self.add_monitor(AND2_monitor, name='AND2')
+    self.AND2_monitor = AND2_monitor
+    self.add_layer(input, name='input')
+    self.add_layer(AND1, name='AND1')
+    self.add_layer(AND2, name='AND2')
+
+    ## Connections ##
+    in_AND1_wfeat = Weight(name='in_AND1_weight_feature', value=torch.Tensor(w_in_AND1), )
+    in_AND1_conn = MulticompartmentConnection(
+      source=input, target=AND1,
+      device=device, pipeline=[in_AND1_wfeat],
+    )
+    AND1_AND2_wfeat = Weight(name='AND1_AND2_weight_feature', value=torch.Tensor(w_AND1_AND2), )
+    AND1_AND2_conn = MulticompartmentConnection(
+      source=AND1, target=AND2,
+      device=device, pipeline=[AND1_AND2_wfeat],
+    )
+    self.add_connection(in_AND1_conn, source='input', target='AND1')
+    self.add_connection(AND1_AND2_conn, source='AND1', target='AND2')
+
+    ## Migrate ##
+    self.to(device)
+
+
+  # Expect input_train to be an ndarray of shape (#-Grid-Cells, time)
+  def get_spikes(self, input_train: np.ndarray, sim_time):
+    input_train = torch.Tensor(input_train.T).unsqueeze(1)    # Reshape to (time, 1, #-Grid-Cells)
+    self.run(inputs={'input': input_train}, time=sim_time,)
+    AND1_spikes = self.AND1_monitor.get('s')
+    AND2_spikes = self.AND2_monitor.get('s')
+    return AND1_spikes, AND2_spikes

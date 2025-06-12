@@ -1,0 +1,1202 @@
+/Users/christopher/Documents/GitHub/BindsNET_GridCells/venv/bin/python /Users/christopher/Documents/GitHub/BindsNET_GridCells/scripts/Chris/DQN/pipeline_executor_2.py
+################
+## Grid Cells ##
+################
+
+Position: ((0, 0)),
+	Top GCs: [152, 135, 59, 17, 0, 99, 173, 163, 160, 120, 80, 73, 38, 28, 25],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 1)),
+	Top GCs: [128, 116, 176, 166, 123, 101, 76, 51, 41, 31, 158, 105, 68, 23],
+	Firing Rates: [7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 2)),
+	Top GCs: [81, 111, 14, 19, 64, 107, 6, 141, 149, 154, 169, 44, 34, 179, 131, 79, 118, 56],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0]
+Position: ((0, 3)),
+	Top GCs: [135, 84, 0, 105, 55, 70, 171, 160, 134, 121, 36, 25],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 4)),
+	Top GCs: [87, 90, 174, 165, 146, 126, 116, 39, 30, 11],
+	Firing Rates: [7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 5)),
+	Top GCs: [83, 141, 17, 73, 6, 152, 111, 102, 64, 42, 177, 129, 98, 168, 52, 33, 26, 161],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 6)),
+	Top GCs: [173, 163, 135, 103, 76, 61, 38, 28, 0, 157, 109, 86, 22, 91, 67, 47],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 5.0, 5.0, 5.0]
+Position: ((1, 0)),
+	Top GCs: [136, 58, 1, 71, 121, 92, 74, 171, 151, 108, 36, 16],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 1)),
+	Top GCs: [157, 52, 22, 124, 114, 77, 67, 174, 39, 167, 147, 126, 32, 12],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 2)),
+	Top GCs: [142, 106, 82, 7, 177, 113, 80, 42, 170, 153, 90, 35, 18, 148, 49, 13],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((1, 3)),
+	Top GCs: [136, 108, 85, 1, 144, 51, 9, 172, 54, 37, 163, 28],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 5.0, 5.0]
+Position: ((1, 4)),
+	Top GCs: [91, 114, 88, 67, 175, 166, 154, 127, 56, 48, 40, 31, 19, 132, 78],
+	Firing Rates: [8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0]
+Position: ((1, 5)),
+	Top GCs: [7, 160, 25, 142, 104, 74, 53, 54, 34, 43, 178, 169, 62, 112, 130, 151, 16, 63],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 6)),
+	Top GCs: [171, 164, 29, 36, 77, 92, 1, 136, 60, 102, 108, 124, 133, 147, 156, 21, 12],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 0)),
+	Top GCs: [151, 137, 84, 16, 2, 57, 48, 122, 110, 101, 172, 105, 70, 37],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 1)),
+	Top GCs: [156, 116, 87, 59, 21, 125, 107, 45, 175, 165, 94, 68, 40, 30],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 2)),
+	Top GCs: [8, 143, 117, 111, 83, 64, 50, 13, 148, 43, 19, 33, 178, 168, 105, 154, 90],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
+Position: ((2, 3)),
+	Top GCs: [137, 70, 2, 173, 120, 86, 38, 164, 146, 110, 95, 56, 29, 11],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0]
+Position: ((2, 4)),
+	Top GCs: [176, 167, 128, 123, 89, 55, 49, 41, 32, 153, 18, 145, 116, 102, 10],
+	Firing Rates: [7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 5)),
+	Top GCs: [8, 72, 159, 151, 143, 16, 24, 103, 35, 44, 179, 170, 81, 64, 111, 131, 93, 122],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0]
+Position: ((2, 6)),
+	Top GCs: [137, 2, 172, 162, 75, 37, 27, 125, 109, 84, 48, 157, 134, 114, 22],
+	Firing Rates: [8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 0)),
+	Top GCs: [150, 135, 85, 15, 0, 129, 108, 90, 71, 159, 73, 24],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((3, 1)),
+	Top GCs: [106, 58, 132, 88, 67, 46, 94, 176, 158, 114, 76, 41, 23],
+	Firing Rates: [8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 2)),
+	Top GCs: [153, 141, 113, 18, 6, 147, 118, 91, 12, 179, 169, 107, 44, 34],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 3)),
+	Top GCs: [135, 108, 0, 171, 162, 121, 36, 27, 146, 11, 159, 45, 24],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((3, 4)),
+	Top GCs: [174, 165, 104, 67, 39, 30, 124, 92, 54, 144, 114, 97, 49, 9],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 5)),
+	Top GCs: [177, 168, 15, 33, 42, 73, 141, 150, 6, 82, 93, 102, 63, 56, 47, 26, 161],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0]
+Position: ((3, 6)),
+	Top GCs: [135, 76, 0, 156, 85, 21, 173, 163, 98, 69, 54, 48, 38, 28, 62],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0]
+Position: ((4, 0)),
+	Top GCs: [136, 110, 1, 130, 107, 86, 74, 150, 118, 98, 70, 15],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 1)),
+	Top GCs: [133, 116, 95, 89, 57, 156, 105, 77, 21, 148, 46, 13],
+	Firing Rates: [8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((4, 2)),
+	Top GCs: [142, 96, 59, 7, 155, 20, 119, 111, 81, 64, 147, 80, 72, 12],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 3)),
+	Top GCs: [172, 163, 28, 37, 70, 1, 136, 110, 45, 145, 10, 93, 75, 122, 84, 102, 57],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0]
+Position: ((4, 4)),
+	Top GCs: [175, 166, 103, 40, 31, 78, 97, 87, 56, 50, 153, 125, 18],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((4, 5)),
+	Top GCs: [178, 169, 142, 83, 74, 43, 34, 7, 159, 94, 24, 55, 150, 64, 47, 15],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 6)),
+	Top GCs: [86, 136, 77, 1, 114, 49, 158, 23, 148, 100, 98, 164, 70, 36, 29, 13, 171],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 0)),
+	Top GCs: [152, 137, 17, 2, 131, 106, 64, 96, 119, 108, 53],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((5, 1)),
+	Top GCs: [158, 23, 134, 47, 125, 107, 67],
+	Firing Rates: [8.0, 8.0, 7.0, 7.0, 5.0, 5.0, 5.0]
+Position: ((5, 2)),
+	Top GCs: [149, 143, 117, 58, 14, 8, 113, 97, 82, 126, 73],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 5.0]
+Position: ((5, 3)),
+	Top GCs: [173, 164, 137, 120, 104, 38, 29, 2, 129, 85, 108, 76, 46],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0]
+Position: ((5, 4)),
+	Top GCs: [176, 167, 132, 123, 98, 41, 32, 155, 88, 20, 102, 79, 67, 146, 111, 11],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((5, 5)),
+	Top GCs: [179, 170, 161, 152, 143, 44, 35, 26, 17, 8, 81, 72, 63, 54, 45],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 6)),
+	Top GCs: [137, 2, 99, 69, 84, 116, 96, 75, 56],
+	Firing Rates: [8.0, 8.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 0)),
+	Top GCs: [135, 110, 0, 105, 84, 53, 151, 117, 96, 60, 16],
+	Firing Rates: [8.0, 8.0, 8.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 1)),
+	Top GCs: [90, 157, 87, 22, 147, 120, 116, 12],
+	Firing Rates: [7.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 2)),
+	Top GCs: [141, 6, 155, 118, 83, 57, 52, 20, 127, 148, 67, 13],
+	Firing Rates: [8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0]
+Position: ((6, 3)),
+	Top GCs: [171, 103, 27, 36, 86, 162, 0, 121, 135, 130, 70, 59, 144, 9, 110, 91, 114, 77],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0]
+Position: ((6, 4)),
+	Top GCs: [174, 165, 133, 124, 89, 51, 39, 30, 154, 113, 80, 57, 19],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 5)),
+	Top GCs: [177, 168, 141, 42, 33, 6, 160, 108, 25, 73, 56, 151, 100, 92, 82, 16],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 6)),
+	Top GCs: [0, 135, 114, 101, 158, 23, 55, 53, 12, 29, 37, 172, 70, 164, 85, 147, 76],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Positions (0, 0) and (0, 3) share {0, 25, 160, 135} Grid Cells.
+Positions (0, 0) and (0, 5) share {152, 73, 17} Grid Cells.
+Positions (0, 0) and (0, 6) share {0, 163, 38, 135, 173, 28} Grid Cells.
+Positions (0, 0) and (1, 3) share {163, 28} Grid Cells.
+Positions (0, 0) and (1, 5) share {160, 25} Grid Cells.
+Positions (0, 0) and (2, 3) share {120, 173, 38} Grid Cells.
+Positions (0, 0) and (3, 0) share {0, 73, 135} Grid Cells.
+Positions (0, 0) and (3, 3) share {0, 135} Grid Cells.
+Positions (0, 0) and (3, 6) share {0, 163, 38, 135, 173, 28} Grid Cells.
+Positions (0, 0) and (4, 2) share {80, 59} Grid Cells.
+Positions (0, 0) and (4, 3) share {163, 28} Grid Cells.
+Positions (0, 0) and (5, 0) share {152, 17} Grid Cells.
+Positions (0, 0) and (5, 3) share {120, 173, 38} Grid Cells.
+Positions (0, 0) and (5, 5) share {152, 17} Grid Cells.
+Positions (0, 0) and (6, 0) share {0, 135} Grid Cells.
+Positions (0, 0) and (6, 3) share {0, 59, 135} Grid Cells.
+Positions (0, 0) and (6, 5) share {160, 73, 25} Grid Cells.
+Positions (0, 0) and (6, 6) share {0, 135} Grid Cells.
+Positions (0, 1) and (1, 4) share {166, 31} Grid Cells.
+Positions (0, 1) and (2, 0) share {105, 101} Grid Cells.
+Positions (0, 1) and (2, 1) share {116, 68} Grid Cells.
+Positions (0, 1) and (2, 4) share {128, 41, 176, 116, 123} Grid Cells.
+Positions (0, 1) and (3, 1) share {41, 76, 176, 23, 158} Grid Cells.
+Positions (0, 1) and (4, 1) share {105, 116} Grid Cells.
+Positions (0, 1) and (4, 4) share {166, 31} Grid Cells.
+Positions (0, 1) and (4, 6) share {158, 23} Grid Cells.
+Positions (0, 1) and (5, 1) share {158, 23} Grid Cells.
+Positions (0, 1) and (5, 4) share {176, 41, 123} Grid Cells.
+Positions (0, 1) and (6, 6) share {76, 101, 158, 23} Grid Cells.
+Positions (0, 2) and (0, 5) share {64, 141, 6, 111} Grid Cells.
+Positions (0, 2) and (1, 4) share {56, 154, 19} Grid Cells.
+Positions (0, 2) and (1, 5) share {169, 34} Grid Cells.
+Positions (0, 2) and (2, 2) share {64, 154, 19, 111} Grid Cells.
+Positions (0, 2) and (2, 5) share {64, 131, 44, 111, 81, 179} Grid Cells.
+Positions (0, 2) and (3, 2) share {34, 6, 169, 107, 44, 141, 179, 118} Grid Cells.
+Positions (0, 2) and (3, 5) share {56, 141, 6} Grid Cells.
+Positions (0, 2) and (4, 0) share {107, 118} Grid Cells.
+Positions (0, 2) and (4, 2) share {64, 81, 111} Grid Cells.
+Positions (0, 2) and (4, 5) share {64, 169, 34} Grid Cells.
+Positions (0, 2) and (5, 0) share {64, 131} Grid Cells.
+Positions (0, 2) and (5, 2) share {149, 14} Grid Cells.
+Positions (0, 2) and (5, 4) share {111, 79} Grid Cells.
+Positions (0, 2) and (5, 5) share {81, 179, 44} Grid Cells.
+Positions (0, 2) and (6, 2) share {118, 141, 6} Grid Cells.
+Positions (0, 2) and (6, 4) share {154, 19} Grid Cells.
+Positions (0, 2) and (6, 5) share {56, 141, 6} Grid Cells.
+Positions (0, 3) and (0, 6) share {0, 135} Grid Cells.
+Positions (0, 3) and (1, 0) share {121, 171, 36} Grid Cells.
+Positions (0, 3) and (1, 5) share {160, 25} Grid Cells.
+Positions (0, 3) and (1, 6) share {171, 36} Grid Cells.
+Positions (0, 3) and (2, 0) share {105, 84, 70} Grid Cells.
+Positions (0, 3) and (2, 6) share {84, 134} Grid Cells.
+Positions (0, 3) and (3, 0) share {0, 135} Grid Cells.
+Positions (0, 3) and (3, 3) share {0, 36, 135, 171, 121} Grid Cells.
+Positions (0, 3) and (3, 6) share {0, 135} Grid Cells.
+Positions (0, 3) and (4, 3) share {84, 70} Grid Cells.
+Positions (0, 3) and (4, 6) share {171, 36, 70} Grid Cells.
+Positions (0, 3) and (6, 0) share {0, 105, 84, 135} Grid Cells.
+Positions (0, 3) and (6, 3) share {0, 36, 70, 135, 171, 121} Grid Cells.
+Positions (0, 3) and (6, 5) share {160, 25} Grid Cells.
+Positions (0, 3) and (6, 6) share {0, 55, 70, 135} Grid Cells.
+Positions (0, 4) and (1, 1) share {126, 174, 39} Grid Cells.
+Positions (0, 4) and (2, 1) share {116, 165, 30, 87} Grid Cells.
+Positions (0, 4) and (2, 3) share {146, 11} Grid Cells.
+Positions (0, 4) and (3, 3) share {146, 11} Grid Cells.
+Positions (0, 4) and (3, 4) share {30, 165, 174, 39} Grid Cells.
+Positions (0, 4) and (5, 4) share {146, 11} Grid Cells.
+Positions (0, 4) and (6, 1) share {90, 116, 87} Grid Cells.
+Positions (0, 4) and (6, 4) share {30, 165, 174, 39} Grid Cells.
+Positions (0, 5) and (1, 2) share {177, 42} Grid Cells.
+Positions (0, 5) and (2, 2) share {64, 33, 168, 111, 83} Grid Cells.
+Positions (0, 5) and (2, 5) share {64, 111} Grid Cells.
+Positions (0, 5) and (3, 0) share {73, 129} Grid Cells.
+Positions (0, 5) and (3, 2) share {141, 6} Grid Cells.
+Positions (0, 5) and (3, 5) share {33, 161, 102, 6, 168, 73, 42, 141, 177, 26} Grid Cells.
+Positions (0, 5) and (4, 2) share {64, 111} Grid Cells.
+Positions (0, 5) and (4, 5) share {64, 83} Grid Cells.
+Positions (0, 5) and (5, 0) share {64, 17, 152} Grid Cells.
+Positions (0, 5) and (5, 4) share {98, 102, 111} Grid Cells.
+Positions (0, 5) and (5, 5) share {152, 161, 26, 17} Grid Cells.
+Positions (0, 5) and (6, 2) share {83, 52, 141, 6} Grid Cells.
+Positions (0, 5) and (6, 5) share {33, 6, 168, 73, 42, 141, 177} Grid Cells.
+Positions (0, 6) and (1, 1) share {67, 157, 22} Grid Cells.
+Positions (0, 6) and (1, 3) share {163, 28} Grid Cells.
+Positions (0, 6) and (1, 4) share {91, 67} Grid Cells.
+Positions (0, 6) and (2, 3) share {86, 173, 38} Grid Cells.
+Positions (0, 6) and (2, 6) share {109, 157, 22} Grid Cells.
+Positions (0, 6) and (3, 0) share {0, 135} Grid Cells.
+Positions (0, 6) and (3, 1) share {67, 76} Grid Cells.
+Positions (0, 6) and (3, 3) share {0, 135} Grid Cells.
+Positions (0, 6) and (3, 6) share {0, 163, 38, 135, 76, 173, 28} Grid Cells.
+Positions (0, 6) and (4, 3) share {163, 28} Grid Cells.
+Positions (0, 6) and (5, 1) share {67, 47} Grid Cells.
+Positions (0, 6) and (5, 3) share {76, 173, 38} Grid Cells.
+Positions (0, 6) and (6, 0) share {0, 135} Grid Cells.
+Positions (0, 6) and (6, 1) share {157, 22} Grid Cells.
+Positions (0, 6) and (6, 3) share {0, 135, 103, 86, 91} Grid Cells.
+Positions (0, 6) and (6, 6) share {0, 76, 135} Grid Cells.
+Positions (1, 0) and (1, 3) share {136, 1, 108} Grid Cells.
+Positions (1, 0) and (1, 5) share {16, 74, 151} Grid Cells.
+Positions (1, 0) and (1, 6) share {1, 36, 136, 171, 108, 92} Grid Cells.
+Positions (1, 0) and (2, 0) share {16, 151} Grid Cells.
+Positions (1, 0) and (2, 5) share {16, 151} Grid Cells.
+Positions (1, 0) and (3, 0) share {108, 71} Grid Cells.
+Positions (1, 0) and (3, 3) share {108, 121, 171, 36} Grid Cells.
+Positions (1, 0) and (4, 0) share {136, 1, 74} Grid Cells.
+Positions (1, 0) and (4, 3) share {136, 1} Grid Cells.
+Positions (1, 0) and (4, 6) share {136, 1, 171, 36} Grid Cells.
+Positions (1, 0) and (6, 0) share {16, 151} Grid Cells.
+Positions (1, 0) and (6, 3) share {121, 171, 36} Grid Cells.
+Positions (1, 0) and (6, 5) share {16, 108, 92, 151} Grid Cells.
+Positions (1, 1) and (1, 4) share {114, 67} Grid Cells.
+Positions (1, 1) and (1, 6) share {124, 147, 12, 77} Grid Cells.
+Positions (1, 1) and (2, 4) share {32, 167} Grid Cells.
+Positions (1, 1) and (2, 6) share {114, 157, 22} Grid Cells.
+Positions (1, 1) and (3, 1) share {114, 67} Grid Cells.
+Positions (1, 1) and (3, 2) share {147, 12} Grid Cells.
+Positions (1, 1) and (3, 4) share {67, 39, 174, 114, 124} Grid Cells.
+Positions (1, 1) and (4, 2) share {147, 12} Grid Cells.
+Positions (1, 1) and (4, 6) share {114, 77} Grid Cells.
+Positions (1, 1) and (5, 4) share {32, 67, 167} Grid Cells.
+Positions (1, 1) and (6, 1) share {147, 12, 157, 22} Grid Cells.
+Positions (1, 1) and (6, 2) share {67, 52} Grid Cells.
+Positions (1, 1) and (6, 3) share {114, 77} Grid Cells.
+Positions (1, 1) and (6, 4) share {124, 174, 39} Grid Cells.
+Positions (1, 1) and (6, 6) share {114, 147, 12} Grid Cells.
+Positions (1, 2) and (1, 5) share {142, 7} Grid Cells.
+Positions (1, 2) and (2, 2) share {90, 148, 13} Grid Cells.
+Positions (1, 2) and (2, 4) share {153, 18, 49} Grid Cells.
+Positions (1, 2) and (2, 5) share {170, 35} Grid Cells.
+Positions (1, 2) and (3, 2) share {113, 18, 153} Grid Cells.
+Positions (1, 2) and (3, 5) share {177, 42, 82} Grid Cells.
+Positions (1, 2) and (4, 1) share {148, 13} Grid Cells.
+Positions (1, 2) and (4, 2) share {80, 142, 7} Grid Cells.
+Positions (1, 2) and (4, 4) share {153, 18} Grid Cells.
+Positions (1, 2) and (4, 5) share {142, 7} Grid Cells.
+Positions (1, 2) and (4, 6) share {49, 148, 13} Grid Cells.
+Positions (1, 2) and (5, 2) share {113, 82} Grid Cells.
+Positions (1, 2) and (5, 5) share {170, 35} Grid Cells.
+Positions (1, 2) and (6, 2) share {148, 13} Grid Cells.
+Positions (1, 2) and (6, 4) share {80, 113} Grid Cells.
+Positions (1, 2) and (6, 5) share {177, 42, 82} Grid Cells.
+Positions (1, 3) and (1, 6) share {136, 1, 108} Grid Cells.
+Positions (1, 3) and (2, 0) share {172, 37} Grid Cells.
+Positions (1, 3) and (2, 6) share {172, 37} Grid Cells.
+Positions (1, 3) and (3, 0) share {108, 85} Grid Cells.
+Positions (1, 3) and (3, 4) share {144, 9, 54} Grid Cells.
+Positions (1, 3) and (3, 6) share {163, 28, 85, 54} Grid Cells.
+Positions (1, 3) and (4, 0) share {136, 1} Grid Cells.
+Positions (1, 3) and (4, 3) share {1, 163, 37, 136, 172, 28} Grid Cells.
+Positions (1, 3) and (4, 6) share {136, 1} Grid Cells.
+Positions (1, 3) and (5, 3) share {108, 85} Grid Cells.
+Positions (1, 3) and (6, 3) share {144, 9} Grid Cells.
+Positions (1, 3) and (6, 6) share {85, 172, 37} Grid Cells.
+Positions (1, 4) and (2, 1) share {40, 175} Grid Cells.
+Positions (1, 4) and (2, 2) share {154, 19} Grid Cells.
+Positions (1, 4) and (2, 6) share {48, 114} Grid Cells.
+Positions (1, 4) and (3, 1) share {88, 114, 67, 132} Grid Cells.
+Positions (1, 4) and (3, 4) share {114, 67} Grid Cells.
+Positions (1, 4) and (4, 4) share {166, 40, 78, 175, 56, 31} Grid Cells.
+Positions (1, 4) and (5, 4) share {88, 67, 132} Grid Cells.
+Positions (1, 4) and (6, 2) share {67, 127} Grid Cells.
+Positions (1, 4) and (6, 3) share {114, 91} Grid Cells.
+Positions (1, 4) and (6, 4) share {154, 19} Grid Cells.
+Positions (1, 5) and (2, 0) share {16, 151} Grid Cells.
+Positions (1, 5) and (2, 2) share {178, 43} Grid Cells.
+Positions (1, 5) and (2, 5) share {16, 151} Grid Cells.
+Positions (1, 5) and (3, 2) share {169, 34} Grid Cells.
+Positions (1, 5) and (3, 4) share {104, 54} Grid Cells.
+Positions (1, 5) and (3, 6) share {62, 54} Grid Cells.
+Positions (1, 5) and (4, 0) share {130, 74} Grid Cells.
+Positions (1, 5) and (4, 2) share {142, 7} Grid Cells.
+Positions (1, 5) and (4, 5) share {34, 7, 169, 74, 43, 142, 178} Grid Cells.
+Positions (1, 5) and (5, 5) share {54, 63} Grid Cells.
+Positions (1, 5) and (6, 0) share {16, 53, 151} Grid Cells.
+Positions (1, 5) and (6, 5) share {160, 16, 25, 151} Grid Cells.
+Positions (1, 6) and (2, 1) share {156, 21} Grid Cells.
+Positions (1, 6) and (2, 3) share {164, 29} Grid Cells.
+Positions (1, 6) and (3, 2) share {147, 12} Grid Cells.
+Positions (1, 6) and (3, 3) share {108, 171, 36} Grid Cells.
+Positions (1, 6) and (3, 4) share {124, 92} Grid Cells.
+Positions (1, 6) and (3, 6) share {156, 21} Grid Cells.
+Positions (1, 6) and (4, 0) share {136, 1} Grid Cells.
+Positions (1, 6) and (4, 1) share {156, 21, 77, 133} Grid Cells.
+Positions (1, 6) and (4, 2) share {147, 12} Grid Cells.
+Positions (1, 6) and (4, 3) share {136, 1, 102} Grid Cells.
+Positions (1, 6) and (4, 6) share {1, 164, 36, 136, 171, 77, 29} Grid Cells.
+Positions (1, 6) and (5, 3) share {108, 164, 29} Grid Cells.
+Positions (1, 6) and (6, 1) share {147, 12} Grid Cells.
+Positions (1, 6) and (6, 3) share {171, 36, 77} Grid Cells.
+Positions (1, 6) and (6, 4) share {124, 133} Grid Cells.
+Positions (1, 6) and (6, 5) share {108, 92} Grid Cells.
+Positions (1, 6) and (6, 6) share {29, 147, 164, 12} Grid Cells.
+Positions (2, 0) and (2, 3) share {137, 2, 110, 70} Grid Cells.
+Positions (2, 0) and (2, 5) share {16, 122, 151} Grid Cells.
+Positions (2, 0) and (2, 6) share {2, 37, 137, 172, 48, 84} Grid Cells.
+Positions (2, 0) and (4, 0) share {110, 70} Grid Cells.
+Positions (2, 0) and (4, 1) share {105, 57} Grid Cells.
+Positions (2, 0) and (4, 3) share {37, 70, 172, 110, 84, 57, 122} Grid Cells.
+Positions (2, 0) and (5, 0) share {137, 2} Grid Cells.
+Positions (2, 0) and (5, 3) share {137, 2} Grid Cells.
+Positions (2, 0) and (5, 6) share {137, 2, 84} Grid Cells.
+Positions (2, 0) and (6, 0) share {105, 110, 16, 84, 151} Grid Cells.
+Positions (2, 0) and (6, 3) share {110, 70} Grid Cells.
+Positions (2, 0) and (6, 5) share {16, 151} Grid Cells.
+Positions (2, 0) and (6, 6) share {37, 172, 101, 70} Grid Cells.
+Positions (2, 1) and (3, 4) share {165, 30} Grid Cells.
+Positions (2, 1) and (3, 6) share {156, 21} Grid Cells.
+Positions (2, 1) and (4, 1) share {156, 116, 21} Grid Cells.
+Positions (2, 1) and (4, 4) share {40, 125, 87, 175} Grid Cells.
+Positions (2, 1) and (5, 1) share {107, 125} Grid Cells.
+Positions (2, 1) and (6, 1) share {116, 87} Grid Cells.
+Positions (2, 1) and (6, 4) share {165, 30} Grid Cells.
+Positions (2, 2) and (2, 5) share {64, 8, 143, 111} Grid Cells.
+Positions (2, 2) and (3, 5) share {168, 33} Grid Cells.
+Positions (2, 2) and (4, 1) share {105, 148, 13} Grid Cells.
+Positions (2, 2) and (4, 2) share {64, 111} Grid Cells.
+Positions (2, 2) and (4, 5) share {64, 83, 178, 43} Grid Cells.
+Positions (2, 2) and (4, 6) share {148, 13} Grid Cells.
+Positions (2, 2) and (5, 2) share {8, 117, 143} Grid Cells.
+Positions (2, 2) and (5, 5) share {8, 143} Grid Cells.
+Positions (2, 2) and (6, 0) share {105, 117} Grid Cells.
+Positions (2, 2) and (6, 2) share {83, 148, 13} Grid Cells.
+Positions (2, 2) and (6, 4) share {154, 19} Grid Cells.
+Positions (2, 2) and (6, 5) share {168, 33} Grid Cells.
+Positions (2, 3) and (2, 6) share {137, 2} Grid Cells.
+Positions (2, 3) and (3, 3) share {146, 11} Grid Cells.
+Positions (2, 3) and (3, 6) share {173, 38} Grid Cells.
+Positions (2, 3) and (4, 0) share {86, 110, 70} Grid Cells.
+Positions (2, 3) and (4, 3) share {110, 70} Grid Cells.
+Positions (2, 3) and (4, 6) share {86, 164, 29, 70} Grid Cells.
+Positions (2, 3) and (5, 0) share {137, 2} Grid Cells.
+Positions (2, 3) and (5, 3) share {2, 164, 38, 137, 173, 120, 29} Grid Cells.
+Positions (2, 3) and (5, 4) share {146, 11} Grid Cells.
+Positions (2, 3) and (5, 6) share {56, 137, 2} Grid Cells.
+Positions (2, 3) and (6, 3) share {86, 110, 70} Grid Cells.
+Positions (2, 3) and (6, 6) share {164, 29, 70} Grid Cells.
+Positions (2, 4) and (3, 1) share {176, 41} Grid Cells.
+Positions (2, 4) and (3, 2) share {153, 18} Grid Cells.
+Positions (2, 4) and (4, 1) share {89, 116} Grid Cells.
+Positions (2, 4) and (4, 3) share {145, 10, 102} Grid Cells.
+Positions (2, 4) and (4, 4) share {153, 18} Grid Cells.
+Positions (2, 4) and (5, 4) share {32, 102, 167, 41, 176, 123} Grid Cells.
+Positions (2, 5) and (3, 0) share {24, 159} Grid Cells.
+Positions (2, 5) and (3, 2) share {179, 44} Grid Cells.
+Positions (2, 5) and (3, 3) share {24, 159} Grid Cells.
+Positions (2, 5) and (4, 2) share {64, 81, 72, 111} Grid Cells.
+Positions (2, 5) and (4, 3) share {122, 93} Grid Cells.
+Positions (2, 5) and (4, 5) share {64, 24, 159} Grid Cells.
+Positions (2, 5) and (5, 0) share {64, 131} Grid Cells.
+Positions (2, 5) and (5, 2) share {8, 143} Grid Cells.
+Positions (2, 5) and (5, 5) share {35, 8, 72, 170, 44, 143, 81, 179} Grid Cells.
+Positions (2, 5) and (6, 0) share {16, 151} Grid Cells.
+Positions (2, 5) and (6, 5) share {16, 151} Grid Cells.
+Positions (2, 6) and (3, 3) share {162, 27} Grid Cells.
+Positions (2, 6) and (4, 3) share {75, 172, 37, 84} Grid Cells.
+Positions (2, 6) and (5, 0) share {137, 2} Grid Cells.
+Positions (2, 6) and (5, 1) share {125, 134} Grid Cells.
+Positions (2, 6) and (5, 3) share {137, 2} Grid Cells.
+Positions (2, 6) and (5, 6) share {137, 2, 75, 84} Grid Cells.
+Positions (2, 6) and (6, 1) share {157, 22} Grid Cells.
+Positions (2, 6) and (6, 3) share {162, 27, 114} Grid Cells.
+Positions (2, 6) and (6, 6) share {114, 172, 37} Grid Cells.
+Positions (3, 0) and (3, 3) share {0, 135, 108, 24, 159} Grid Cells.
+Positions (3, 0) and (3, 5) share {73, 150, 15} Grid Cells.
+Positions (3, 0) and (3, 6) share {0, 85, 135} Grid Cells.
+Positions (3, 0) and (4, 0) share {150, 15} Grid Cells.
+Positions (3, 0) and (4, 5) share {24, 159, 150, 15} Grid Cells.
+Positions (3, 0) and (5, 3) share {129, 108, 85} Grid Cells.
+Positions (3, 0) and (6, 0) share {0, 135} Grid Cells.
+Positions (3, 0) and (6, 3) share {0, 135} Grid Cells.
+Positions (3, 0) and (6, 5) share {73, 108} Grid Cells.
+Positions (3, 0) and (6, 6) share {0, 85, 135} Grid Cells.
+Positions (3, 1) and (3, 4) share {114, 67} Grid Cells.
+Positions (3, 1) and (4, 6) share {114, 158, 23} Grid Cells.
+Positions (3, 1) and (5, 1) share {67, 158, 23} Grid Cells.
+Positions (3, 1) and (5, 3) share {76, 46} Grid Cells.
+Positions (3, 1) and (5, 4) share {67, 132, 41, 176, 88} Grid Cells.
+Positions (3, 1) and (6, 6) share {114, 76, 158, 23} Grid Cells.
+Positions (3, 2) and (3, 5) share {141, 6} Grid Cells.
+Positions (3, 2) and (4, 0) share {107, 118} Grid Cells.
+Positions (3, 2) and (4, 2) share {147, 12} Grid Cells.
+Positions (3, 2) and (4, 4) share {153, 18} Grid Cells.
+Positions (3, 2) and (4, 5) share {169, 34} Grid Cells.
+Positions (3, 2) and (5, 5) share {179, 44} Grid Cells.
+Positions (3, 2) and (6, 1) share {147, 12} Grid Cells.
+Positions (3, 2) and (6, 2) share {118, 141, 6} Grid Cells.
+Positions (3, 2) and (6, 5) share {141, 6} Grid Cells.
+Positions (3, 2) and (6, 6) share {147, 12} Grid Cells.
+Positions (3, 3) and (3, 6) share {0, 135} Grid Cells.
+Positions (3, 3) and (4, 5) share {24, 159} Grid Cells.
+Positions (3, 3) and (4, 6) share {171, 36} Grid Cells.
+Positions (3, 3) and (5, 4) share {146, 11} Grid Cells.
+Positions (3, 3) and (6, 0) share {0, 135} Grid Cells.
+Positions (3, 3) and (6, 3) share {0, 162, 36, 135, 171, 121, 27} Grid Cells.
+Positions (3, 3) and (6, 6) share {0, 135} Grid Cells.
+Positions (3, 4) and (4, 6) share {49, 114} Grid Cells.
+Positions (3, 4) and (6, 3) share {144, 9, 114} Grid Cells.
+Positions (3, 4) and (6, 4) share {165, 39, 174, 124, 30} Grid Cells.
+Positions (3, 5) and (4, 0) share {150, 15} Grid Cells.
+Positions (3, 5) and (4, 3) share {93, 102} Grid Cells.
+Positions (3, 5) and (4, 5) share {15, 150, 47} Grid Cells.
+Positions (3, 5) and (5, 2) share {73, 82} Grid Cells.
+Positions (3, 5) and (5, 5) share {161, 26, 63} Grid Cells.
+Positions (3, 5) and (6, 2) share {141, 6} Grid Cells.
+Positions (3, 5) and (6, 5) share {33, 6, 168, 73, 42, 141, 177, 82, 56} Grid Cells.
+Positions (3, 6) and (4, 1) share {156, 21} Grid Cells.
+Positions (3, 6) and (4, 3) share {163, 28} Grid Cells.
+Positions (3, 6) and (5, 3) share {85, 76, 173, 38} Grid Cells.
+Positions (3, 6) and (6, 0) share {0, 135} Grid Cells.
+Positions (3, 6) and (6, 3) share {0, 135} Grid Cells.
+Positions (3, 6) and (6, 6) share {0, 76, 85, 135} Grid Cells.
+Positions (4, 0) and (4, 3) share {136, 1, 110, 70} Grid Cells.
+Positions (4, 0) and (4, 5) share {74, 150, 15} Grid Cells.
+Positions (4, 0) and (4, 6) share {1, 98, 70, 136, 86} Grid Cells.
+Positions (4, 0) and (6, 3) share {86, 130, 110, 70} Grid Cells.
+Positions (4, 1) and (4, 6) share {13, 148, 77} Grid Cells.
+Positions (4, 1) and (6, 2) share {57, 148, 13} Grid Cells.
+Positions (4, 1) and (6, 4) share {89, 133, 57} Grid Cells.
+Positions (4, 2) and (4, 5) share {64, 142, 7} Grid Cells.
+Positions (4, 2) and (5, 0) share {64, 96, 119} Grid Cells.
+Positions (4, 2) and (5, 4) share {155, 20, 111} Grid Cells.
+Positions (4, 2) and (5, 5) share {72, 81} Grid Cells.
+Positions (4, 2) and (6, 1) share {147, 12} Grid Cells.
+Positions (4, 2) and (6, 2) share {155, 20} Grid Cells.
+Positions (4, 2) and (6, 6) share {147, 12} Grid Cells.
+Positions (4, 3) and (4, 6) share {136, 1, 70} Grid Cells.
+Positions (4, 3) and (5, 6) share {75, 84} Grid Cells.
+Positions (4, 3) and (6, 0) share {84, 110} Grid Cells.
+Positions (4, 3) and (6, 3) share {110, 70} Grid Cells.
+Positions (4, 3) and (6, 6) share {172, 37, 70} Grid Cells.
+Positions (4, 6) and (5, 1) share {158, 23} Grid Cells.
+Positions (4, 6) and (5, 3) share {164, 29} Grid Cells.
+Positions (4, 6) and (6, 2) share {148, 13} Grid Cells.
+Positions (4, 6) and (6, 3) share {36, 70, 171, 77, 114, 86} Grid Cells.
+Positions (4, 6) and (6, 6) share {164, 70, 114, 23, 29, 158} Grid Cells.
+Positions (5, 0) and (5, 3) share {137, 2, 108} Grid Cells.
+Positions (5, 0) and (5, 5) share {152, 17} Grid Cells.
+Positions (5, 0) and (5, 6) share {96, 137, 2} Grid Cells.
+Positions (5, 0) and (6, 0) share {96, 53} Grid Cells.
+Positions (5, 1) and (6, 6) share {158, 23} Grid Cells.
+Positions (5, 2) and (5, 5) share {8, 143} Grid Cells.
+Positions (5, 2) and (6, 5) share {73, 82} Grid Cells.
+Positions (5, 3) and (5, 6) share {137, 2} Grid Cells.
+Positions (5, 3) and (6, 6) share {29, 164, 85, 76} Grid Cells.
+Positions (5, 4) and (6, 2) share {67, 20, 155} Grid Cells.
+Positions (5, 6) and (6, 0) share {96, 84} Grid Cells.
+Positions (6, 0) and (6, 3) share {0, 110, 135} Grid Cells.
+Positions (6, 0) and (6, 5) share {16, 151} Grid Cells.
+Positions (6, 0) and (6, 6) share {0, 53, 135} Grid Cells.
+Positions (6, 1) and (6, 6) share {147, 12} Grid Cells.
+Positions (6, 2) and (6, 5) share {141, 6} Grid Cells.
+Positions (6, 3) and (6, 6) share {0, 114, 70, 135} Grid Cells.
+
+#####################
+## Reservoir Cells ##
+#####################
+
+Position: ((0, 0)),
+	Top Res Neurons: [1526, 1674, 755, 172, 1138, 2237, 2375, 622, 1495, 1384, 2904, 1517, 410, 309, 281, 776, 2519, 2528, 2677, 46, 759, 2332, 1109, 1663, 1160, 994, 745, 946, 21, 611, 406, 1947, 2109, 526, 841, 385, 380, 316, 192, 152, 799, 80, 826, 2910, 922, 989, 2884, 2791, 2537, 2464, 2394, 2384, 2379, 2286, 2080, 2062, 1917, 1803, 1776, 1712, 1536, 1483, 1447, 1048, 1009, 1200],
+	Firing Rates: [9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 1)),
+	Top Res Neurons: [2961, 2960, 1001, 1142, 1204, 1547, 802, 744, 2285, 2339, 2547, 2885, 1094, 720, 702, 656, 894, 609, 905, 962, 369, 1482, 1047, 1495, 1524, 1762, 1987, 2174, 2286, 2448, 2477, 2494, 2607, 242],
+	Firing Rates: [7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 2)),
+	Top Res Neurons: [1339, 1647, 202, 856, 2547, 2381, 1204, 1015, 2155, 687, 2323, 2380, 104, 2619, 124, 2858, 500, 2510, 263, 2483, 2671, 152, 1198, 1829, 2462, 271, 661, 206, 727, 939, 1183, 1446, 467, 1542, 2188, 2617, 2111, 2103, 1871, 2203, 2829, 2725, 257, 2607, 644, 2743, 2509, 2450, 557, 114, 593, 605, 2585, 2917, 2350, 1490, 846, 1906, 1063, 1126, 1837, 1621, 1314, 1579, 1422, 1570, 1448, 1471, 2956],
+	Firing Rates: [10.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 3)),
+	Top Res Neurons: [989, 1674, 1982, 2771, 2718, 2711, 2588, 1963, 1218, 933, 491],
+	Firing Rates: [9.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 4)),
+	Top Res Neurons: [2315, 1738, 2418, 1363, 917, 867, 2982, 1761, 756, 1843, 1956, 734, 2251, 2379, 2526, 676, 2591, 2927, 1265, 1171, 733, 701, 623, 572, 558, 405, 386, 1013, 153, 2998, 1248, 1413, 1492, 1517, 1762, 2174, 2322, 2520, 2568, 2724, 2784, 2832, 2855, 2881, 2953, 41],
+	Firing Rates: [7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 5)),
+	Top Res Neurons: [2698, 1198, 430, 593, 1802, 828, 1829, 1808, 1803, 1117, 846, 1483, 1605, 1299, 1399, 1526, 806, 2910, 2769, 2209, 470, 318, 271, 2068, 2528, 2548, 2603, 152, 15, 2092, 1012, 114, 750, 541, 897, 2924, 2468, 1523, 1536, 2323, 2400, 416, 406, 354, 2519, 270, 236, 216, 209, 156, 2617, 115, 2642, 2177, 1992, 599, 1015, 1344, 1558, 1642, 1191, 1138, 1712, 1714, 685, 1770, 1772, 1844, 1914, 1920, 705, 1416],
+	Firing Rates: [9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((0, 6)),
+	Top Res Neurons: [1068, 1456, 1889, 665, 989, 1009, 2445, 172, 595, 2791, 432, 976, 893, 941, 1982, 785, 777, 1237, 1609, 1815, 1464, 2525, 2632, 2062, 1340, 1218, 2356, 2448, 2628, 877, 2712, 688, 2735, 627, 2786, 575, 408, 332, 1243, 2975, 1824, 1916, 1885, 2207, 2264, 476, 2237, 685, 1847, 2946, 2964, 1901, 370, 347, 306, 264, 228, 727, 737, 759, 2097, 2290, 1495, 1199, 1088, 1534, 2403, 1569, 1792, 2457, 2250, 1674, 1682, 807, 1730, 1003],
+	Firing Rates: [12.0, 10.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 0)),
+	Top Res Neurons: [2557, 2920, 1314, 1673, 2984, 561, 622, 626, 2402, 199, 2705, 2692, 1175, 223, 236, 374, 519, 2891, 2836, 2761, 815, 835, 1167, 2505, 2493, 1321, 1358, 1439, 1448, 2956, 1583, 1646, 2222, 2651, 1568],
+	Firing Rates: [8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 1)),
+	Top Res Neurons: [2602, 2264, 1698, 2725, 200, 1762, 2480, 1867, 285, 1000, 1990, 1363, 1440, 2881, 344, 319, 26, 2410, 2722, 2733, 98, 310, 215, 153, 58, 407, 786, 815, 988, 2968, 1100, 1239, 1295, 1349, 1709, 1933, 2245, 2277, 2542, 2560, 2735, 2739, 2819, 1641],
+	Firing Rates: [8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 2)),
+	Top Res Neurons: [2779, 1662, 1368, 379, 2198, 1184, 1144, 1339, 1308, 2951, 780, 2935, 542, 466, 448, 313, 769, 1511, 2666, 1772, 2785, 2146, 2268, 2273, 2679, 2639, 1552, 2735, 384, 399, 2565, 535, 1660, 888, 2213, 1264, 2096, 151],
+	Firing Rates: [9.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 3)),
+	Top Res Neurons: [2553, 2705, 2254, 835, 1583, 1689, 1681, 142, 1305, 438, 561, 881, 955, 2319, 1900, 1143, 2493, 1673, 1941, 2450, 936, 2393, 2500, 1692, 236],
+	Firing Rates: [9.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 4)),
+	Top Res Neurons: [2410, 2282, 2833, 2483, 1003, 1432, 1339, 755, 1361, 1351, 1210, 1204, 1076, 866, 781, 738, 1728, 734, 358, 341, 216, 197, 175, 118, 2827, 2, 2117, 2069, 2291, 2266, 2191, 2438, 2747, 1904, 1818, 140, 2516, 699, 2734, 2607, 104, 257, 2433, 1643, 2781, 701, 2331, 1587, 759, 2802, 1051, 1099, 2107, 2686, 1926, 2689],
+	Firing Rates: [10.0, 8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 5)),
+	Top Res Neurons: [1517, 2160, 1655, 2075, 1187, 1873, 1253, 2917, 2539, 1836, 1191, 2498, 1379, 2757, 104, 1072, 917, 1323, 2924, 1470, 1139, 1100, 767, 890, 81, 61, 763, 733, 705, 508, 390, 385, 375, 229, 182, 2974, 1448, 1611, 2104, 2482, 2343, 1922, 2779, 1821, 1977, 2810, 2194, 1782, 1754, 2264, 2667, 536, 2651, 1584, 2671, 244, 237, 614, 158, 156, 145, 2843, 2922, 585, 825, 2341, 1914, 1492, 1784, 1788, 1279, 1810, 1190, 1127, 839, 1122, 1967, 2042, 895, 2071, 842, 35],
+	Firing Rates: [10.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((1, 6)),
+	Top Res Neurons: [236, 1709, 1941, 525, 1265, 1305, 108, 2493, 202, 594, 815, 2836, 1583, 1636, 1671, 642, 1167, 2061, 2354, 154, 2692, 2826, 1188, 430, 626, 387, 805, 153, 835, 115, 881, 561, 2956, 1202, 1258, 2774, 2761, 2552, 2393, 2195, 2119, 2006, 1909, 1867, 1714, 1701, 1673, 1534, 1448, 1439, 1524],
+	Firing Rates: [9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 0)),
+	Top Res Neurons: [1121, 406, 809, 2032, 2652, 2514, 906, 756, 995, 890, 2868, 713, 696, 674, 637, 446, 1032, 1294, 1187, 2765, 1433, 1456, 1550, 1554, 1579, 1644, 2022, 2063, 2066, 2240, 2358, 193],
+	Firing Rates: [10.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 1)),
+	Top Res Neurons: [1817, 2750, 1693, 293, 2747, 1181, 1208, 1524, 2041, 707, 2612, 2454, 2142, 1482, 1562, 1191, 2271, 45, 849, 690, 406, 1753, 2949, 1863, 2177, 2128, 1818, 387, 2673, 680, 487, 458, 423, 2710, 298, 846, 2831, 291, 153, 119, 108, 2862, 2653, 863, 2631, 1748, 932, 1003, 1092, 2540, 2163, 1326, 1465, 1955, 2919, 1606, 1623, 1645, 1665, 44],
+	Firing Rates: [11.0, 10.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 2)),
+	Top Res Neurons: [1714, 998, 186, 2451, 756, 104, 2155, 2239, 1943, 644, 701, 2424, 2201, 2254, 2266, 768, 2092, 1126, 193, 2768, 1446, 1268, 1324, 1191, 1187, 1377, 1419, 1177, 2973, 2995, 990, 1094, 1554, 972, 939, 432, 281, 187, 138, 117, 112, 108, 1495, 4, 1704, 2020, 2571, 1755, 2661, 2320, 2245, 2589, 2224, 2860, 2777, 1996, 1813, 1983, 2906, 2913, 1914, 1882, 2934, 1863, 2619, 216, 207, 2722, 200, 2714, 115, 155, 143, 421, 755, 513, 2298, 1768, 1261, 1258, 1133, 2073, 1051, 953, 541, 2417, 847, 2423, 2447, 2542, 682, 1423],
+	Firing Rates: [9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 3)),
+	Top Res Neurons: [1456, 2032, 1413, 2315, 2079, 1872, 1746, 1743, 1381, 509, 1444, 2754, 572, 2836, 187, 627, 589, 1433, 806, 1128, 1420, 1636, 1709, 129],
+	Firing Rates: [10.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 4)),
+	Top Res Neurons: [9, 544, 1990, 1850, 2891, 1094, 1366, 151, 1614, 7, 1591, 719, 1642, 1616, 276, 1691, 1821, 507, 1513, 535, 2943, 1203, 1142, 1131, 1017, 960, 815, 766, 758, 1942, 747, 2830, 2113, 2896, 2681, 2732, 2126, 2130, 172, 2751, 2653, 163, 2215, 2482, 120, 2725, 96, 702, 92, 1260, 717, 22, 814, 2881, 2937, 614, 265, 110, 215, 537, 131, 243, 2705, 338, 251, 2177, 576, 731, 200, 160, 280, 497, 558, 214, 2985, 756, 838, 2884, 2855, 2840, 2785, 2690, 2654, 2526, 2474, 2472, 2198, 2159, 2045, 2044, 2000, 1893, 1878, 1871, 1679, 1662, 1660, 1607, 1606, 1581, 1576, 1573, 1547, 1339, 1259, 928, 1567],
+	Firing Rates: [10.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 5)),
+	Top Res Neurons: [1340, 591, 225, 2804, 2779, 347, 1752, 1133, 2099, 2358, 1962, 2710, 2733, 107, 2743, 2995, 1961, 924, 181, 1126, 1599, 33, 2882, 1971, 2691, 2667, 2418, 2547, 1873, 467, 777, 713, 580, 268, 272, 2383, 168, 95, 881, 944, 1812, 2354, 2064, 1144, 1267, 1308, 1327, 2063, 1368, 1490, 1985, 2977, 1704, 1784, 1791, 1662],
+	Firing Rates: [11.0, 10.0, 10.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((2, 6)),
+	Top Res Neurons: [756, 1727, 297, 536, 696, 2979, 406, 1456, 1305, 4, 2158, 2583, 713, 288, 2740, 2722, 549, 575, 586, 2356, 1779, 1803, 786, 995, 999, 1121, 2793, 1485, 1573, 1644, 2292],
+	Firing Rates: [9.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 0)),
+	Top Res Neurons: [1561, 1184, 1682, 1162, 23, 2777, 1663, 2632, 2445, 1429, 1349, 2791, 989, 944, 653, 354, 281, 171, 156, 2933],
+	Firing Rates: [12.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 1)),
+	Top Res Neurons: [2015, 1808, 200, 986, 2626, 1958, 1987, 961, 950, 853, 802, 1204, 786, 744, 720, 685, 495, 406, 245, 1094, 2911, 1615, 1630, 2910, 1762, 1825, 2021, 2237, 2264, 2342, 2475, 2500, 2607, 2859, 1660],
+	Firing Rates: [7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 2)),
+	Top Res Neurons: [1517, 2819, 1607, 769, 2319, 76, 49, 1941, 1471, 1296, 874, 2886, 673, 557, 2462, 605, 232, 593, 856, 1100, 444, 263, 1448, 165, 2990, 1542, 2955, 1647, 1701, 1770, 1961, 1979, 2283, 2386, 2429, 2542, 2668, 2671, 2681, 2944, 1621],
+	Firing Rates: [9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 3)),
+	Top Res Neurons: [2099, 1508, 989, 1746, 1674, 2718, 1202, 572, 697, 912, 913, 924, 2774, 1121, 1646, 1693, 1932, 1963, 2032, 511],
+	Firing Rates: [7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 4)),
+	Top Res Neurons: [786, 701, 492, 2585, 2544, 1817, 1438, 2942, 1697, 2243, 2881, 61, 133, 2440, 1749, 1570, 1419, 1392, 375, 1002, 953, 841, 804, 1341, 1956, 712, 2444, 2982, 2768, 2653, 1967, 759, 2379, 324, 1969, 236, 558, 465, 626, 635, 209, 656, 667, 37, 21, 12, 379, 220, 2994, 734, 2041, 2932, 2927, 2919, 2733, 2684, 2638, 2450, 2382, 1912, 1020, 1814, 1563, 1517, 1486, 2983, 1368, 1283, 1265, 0],
+	Firing Rates: [8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 5)),
+	Top Res Neurons: [2393, 1138, 1565, 1470, 1867, 881, 1580, 685, 2206, 290, 2424, 362, 354, 1184, 2777, 1761, 1399, 205, 2395, 745, 2194, 2282, 2933, 513, 806, 1198, 1239, 155, 2658, 2537, 2270, 1887, 1714, 2093, 2751, 227, 2467, 384, 2380, 2104, 780, 791, 2052, 1561, 944, 1904, 1187, 1847, 1813, 1353, 1377, 1764, 1457, 1740, 1471, 2934],
+	Firing Rates: [9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((3, 6)),
+	Top Res Neurons: [1456, 2791, 1682, 1622, 564, 1068, 499, 1524, 989, 1982, 2099, 357, 316, 309, 2445, 593, 380, 432, 2904, 1314, 998, 1079, 1398, 2177, 2292, 2319, 2393, 33],
+	Firing Rates: [9.0, 8.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 0)),
+	Top Res Neurons: [2956, 1471, 1448, 2296, 2061, 1562, 1305, 1201, 626, 270, 236],
+	Firing Rates: [6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 1)),
+	Top Res Neurons: [2881, 1607, 1990, 2652, 2949, 169, 198, 200, 275, 415, 462, 635, 837, 950, 1261, 1641, 1623, 2928, 2110, 2130, 2177, 2195, 2551, 2634, 2722, 2826, 153],
+	Firing Rates: [8.0, 7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 2)),
+	Top Res Neurons: [1368, 467, 1184, 274, 1770, 2986, 1841, 1259, 2982, 1440, 909, 1613, 1154, 1873, 2445, 272, 260, 924, 745, 888, 538, 471, 359, 914, 209, 749, 1294, 1074, 1199, 1490, 1662, 1867, 2273, 2418, 2639, 2735, 2737, 2775, 2779, 2893, 2942, 151],
+	Firing Rates: [8.0, 8.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 3)),
+	Top Res Neurons: [2393, 1157, 2380, 2450, 1456, 1815, 2448, 2553, 1709, 1237, 2153, 1794, 1753, 536, 559, 973, 1068, 1876, 2312, 408, 270, 2587, 2659, 2813, 1569, 974, 1020, 881, 2957, 674, 607, 525, 378, 265, 236, 206, 1047, 1534, 1088, 1112, 2711, 2692, 2688, 2493, 2402, 2322, 1874, 1635, 1614, 1596, 2854, 1439, 1390, 1314, 1218, 103],
+	Firing Rates: [9.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 4)),
+	Top Res Neurons: [2961, 419, 2306, 203, 738, 815, 1093, 1432, 2885, 1757, 1801, 1818, 2102, 2269, 2282, 1547, 2677, 2532, 2547, 2686, 634, 1213, 1059, 215, 341, 840, 1046, 1003, 946, 2460, 2747, 641, 434, 2882, 7, 6, 1325, 2, 1576, 1834, 1843, 2581, 1607, 2283, 656, 2015, 2040, 2062, 2862, 358, 2531, 163, 2066, 711, 245, 2110, 2189, 201, 667, 739, 716, 2732, 1328, 1305, 1298, 1253, 1747, 2481, 2560, 2755, 880, 1913, 837, 2006, 779, 2708, 1099],
+	Firing Rates: [11.0, 11.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 5)),
+	Top Res Neurons: [944, 2512, 441, 2779, 2810, 368, 1157, 1966, 2029, 2085, 1903, 2139, 390, 2155, 2194, 1127, 2147, 1749, 1782, 2266, 1680, 263, 1611, 1250, 1562, 1542, 1517, 374, 1399, 375, 1279, 2264, 2644, 2724, 2395, 2498, 2548, 2906, 2613, 2937, 856, 990, 625, 775, 2914, 1570, 1620, 2338, 1190, 1448, 1380, 636, 1345, 108, 384, 2814, 2093, 1112, 1087, 143, 1034, 2049, 2671, 1972, 1947, 932, 2337, 596, 807, 913, 1027, 1276, 387, 1485, 161, 2633, 2718, 2929, 1574, 2676, 2660, 2922, 2934, 2089, 763, 1662, 104, 614, 46, 41, 378, 580, 595, 113, 114, 157, 202, 221, 250, 705, 2987, 767, 1647, 2956, 2931, 2912, 2901, 2777, 2680, 2565, 2398, 2381, 2300, 2237, 1771, 1561, 769, 2986, 1352, 1349, 1314, 1187, 1170, 1079, 961, 911, 825, 777, 772, 35],
+	Firing Rates: [10.0, 10.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((4, 6)),
+	Top Res Neurons: [1900, 1671, 2705, 525, 2061, 1305, 1201, 1979, 1439, 2692, 594, 1909, 1372, 1330, 1319, 1314, 2989, 1555, 1191, 418, 340, 236, 187, 98, 51, 1554, 1673, 1583, 2153, 2761, 2747, 2718, 2485, 2401, 2264, 2222, 2104, 1665, 2077, 2033, 1819, 1792, 1742, 1695, 2870, 26],
+	Firing Rates: [8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 0)),
+	Top Res Neurons: [446, 193, 2032, 1032, 834, 1483, 669, 1802, 2000, 2022, 46, 2093, 2434, 406, 2699, 812, 1495, 379, 131, 1438, 117, 745, 756, 236, 622, 560, 1167, 1121, 2882, 1288, 1920, 2807, 2753, 2575, 2547, 2128, 2119, 1820, 1335, 1803, 1793, 1786, 1685, 2868, 1433, 1451],
+	Firing Rates: [10.0, 10.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 1)),
+	Top Res Neurons: [1849, 1630, 2749, 1316, 26, 406, 690, 699, 962, 1191, 1579, 2710, 1787, 2041, 2189, 2434, 2661, 21],
+	Firing Rates: [6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 2)),
+	Top Res Neurons: [186, 2380, 1466, 202, 403, 444, 95, 1763, 2013, 2040, 615, 1109, 704, 806, 780, 2212, 2270, 2462, 112, 630, 637, 155, 655, 685, 755, 33, 2967, 1455, 1220, 1446, 2939, 1572, 1776, 1877, 2106, 2184, 2306, 2364, 2392, 2395, 2571, 2585, 2607, 1],
+	Firing Rates: [9.0, 9.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 3)),
+	Top Res Neurons: [1154, 611, 2754, 2474, 1456, 1243, 34, 132, 1433, 754, 1499, 1636, 1573, 129, 1561, 352, 1671, 1685, 594, 2099, 508, 176, 605, 627, 642, 193, 406, 932, 353, 998, 1018, 1019, 1121, 345, 2983, 1353, 2032, 2868, 2784, 2777, 2714, 2632, 2567, 2561, 2555, 2285, 1847, 1392, 1819, 1547, 1485, 1464, 1437, 2891, 1422, 1420, 1398, 1429],
+	Firing Rates: [9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 4)),
+	Top Res Neurons: [1808, 1142, 2137, 215, 280, 802, 1167, 1094, 1184, 558, 1990, 2542, 1958, 815, 542, 2346, 535, 1405, 1825, 488, 1718, 1541, 1660, 1616, 1614, 2286, 2382, 2980, 200, 2937, 2902, 131, 2843, 2787, 2725, 1580, 966, 766, 2501, 2500, 686, 2457, 797, 1224, 2227, 119, 1666, 2926, 2962, 1349, 1543, 2237, 2123, 276, 2495, 2489, 2445, 1711, 1904, 349, 823, 353, 559, 284, 386, 569, 509, 405, 274, 151, 41, 491, 2982, 851, 1882, 2960, 2911, 2855, 2770, 2724, 2587, 2561, 2520, 2433, 2284, 2015, 1885, 1863, 864, 1817, 1550, 1364, 1272, 1259, 1248, 1199, 1071, 1043, 993, 950, 928, 39],
+	Firing Rates: [11.0, 10.0, 10.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 5)),
+	Top Res Neurons: [384, 186, 593, 21, 2526, 1330, 960, 1704, 112, 2677, 1589, 2212, 140, 2748, 848, 2260, 1480, 830, 2164, 2103, 1424, 72, 2329, 450, 2141, 120, 1073, 1631, 2106, 812, 236, 1125, 1453, 890, 2883, 2882, 381, 2249, 2448, 2021, 1342, 2271, 2247, 853, 2393, 2288, 1215, 911, 1976, 2352, 1226, 2564, 401, 2785, 1555, 2894, 542, 2860, 1642, 2830, 2171, 1727, 2050, 2779, 312, 30, 2092, 1151, 2972, 347, 644, 2673, 284, 994, 1653, 1117, 1194, 1197, 1127, 310, 295, 1384, 1253, 1288, 1586, 1575, 1559, 2977, 1526, 1511, 1510, 1506, 1495, 1494, 1490, 268, 1473, 1471, 270, 1460, 1451, 1423, 1411, 1404, 1399, 1109, 1352, 1347, 1336, 1308, 1293, 1291, 1290, 1115, 5, 1089, 1077, 695, 694, 672, 669, 655, 634, 626, 406, 608, 601, 599, 591, 585, 580, 577, 571, 564, 559, 557, 537, 514, 512, 493, 489, 484, 474, 471, 407, 466, 701, 705, 725, 942, 1057, 1050, 1046, 1032, 1021, 1018, 1016, 1012, 328, 974, 1590, 953, 947, 938, 729, 924, 915, 363, 894, 368, 881, 379, 850, 849, 834, 783, 770, 757, 964, 1776, 227, 2451, 2602, 2593, 2586, 2579, 2547, 2530, 2528, 2522, 2521, 86, 2504, 101, 2482, 2465, 2425, 2639, 2418, 2391, 2383, 2381, 2378, 2376, 2360, 2350, 2323, 2322, 2313, 106, 2294, 2281, 61, 2642, 2270, 2807, 2955, 2951, 2950, 2948, 2941, 2932, 2925, 2924, 2910, 15, 2904, 2887, 18, 2825, 2806, 2666, 2804, 2802, 2772, 2762, 2743, 2730, 2720, 31, 2710, 43, 2698, 2691, 2690, 2670, 2279, 2245, 1613, 1784, 1849, 1844, 1843, 1828, 156, 1812, 157, 1804, 1803, 1802, 172, 1795, 1793, 1789, 1781, 1947, 442, 1774, 1763, 1762, 175, 193, 209, 214, 1693, 1685, 1650, 1635, 1626, 225, 1860, 1955, 2232, 149, 2222, 2207, 2204, 124, 2188, 2174, 2155, 2154, 141, 146, 2147, 2140, 2134, 2130, 2105, 2101, 2095, 2090, 155, 2042, 2008, 1996, 1991, 1988, 1985, 1979, 1971, 1970, 1966, 445, 293, 1556, 2703, 1536, 2496, 1595, 1622, 882, 1306, 1824, 2617, 256, 1474, 912, 2150, 2193, 2177, 2149, 2112, 2241, 467, 2252, 2308, 2515, 2533, 2711, 2729, 2780, 2843, 2905, 8, 2051, 1742, 1805, 162, 405, 637, 673, 727, 861, 927, 989, 1145, 1167, 301, 1240, 1461, 1470, 1695, 1699, 1701, 610, 1753, 1799, 2986],
+	Firing Rates: [13.0, 12.0, 12.0, 12.0, 11.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((5, 6)),
+	Top Res Neurons: [2434, 355, 1662, 1534, 406, 408, 2793, 1100, 893, 442, 2886, 296, 265, 238, 193, 45, 1456, 33, 1660, 2285, 2393, 1980, 1121, 1756, 2722, 2673, 2517, 252, 1237, 1682, 328, 2187, 375, 2177, 1313, 436, 1820, 536, 696, 1803, 961, 1141],
+	Firing Rates: [8.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 0)),
+	Top Res Neurons: [406, 2804, 2677, 2237, 2066, 1154, 1133, 713, 218, 21, 1],
+	Firing Rates: [6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 1)),
+	Top Res Neurons: [1660, 28, 442, 2634, 2595, 2264, 2174, 1954, 1801, 1762, 786, 575, 157],
+	Firing Rates: [7.0, 7.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 2)),
+	Top Res Neurons: [1770, 1893, 131, 2444, 559, 1183, 40, 1711, 2237, 2218, 2911, 932, 1941, 114, 1114, 605, 644, 1423, 430, 203, 1280, 2944, 1554, 1671, 1858, 1906, 1992, 2087, 2139, 2188, 2239, 2768, 2846, 2883, 1817],
+	Firing Rates: [11.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 3)),
+	Top Res Neurons: [989, 2507, 2061, 525, 1508, 1440, 2388, 2057, 549, 1840, 912, 891, 2032, 485, 1689, 1646, 709, 1746, 1674, 375, 12, 1561, 2942, 1269, 1167, 999, 609, 889, 855, 1412, 1676, 708, 2909, 2353, 2815, 200, 229, 2134, 2243, 2086, 18, 21, 24, 1208, 1191, 2718, 1118, 604, 1003, 801, 961, 631, 900, 946, 938, 2711, 2818, 877, 2886, 597, 2083, 481, 1285, 1956, 1900, 380, 1806, 2106, 1703, 1701, 315, 442, 129, 2318, 148, 1477, 2446, 490, 1392, 1330, 1982, 142, 340, 602, 697, 127, 2988, 726, 1905, 2924, 2920, 2775, 2677, 2616, 2497, 2321, 2271, 2205, 2141, 2084, 1836, 755, 1640, 1609, 1532, 1396, 1302, 1237, 1218, 1215, 1050, 913, 844, 1305],
+	Firing Rates: [12.0, 10.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 4)),
+	Top Res Neurons: [1368, 379, 2444, 2181, 1288, 2440, 2366, 1341, 1283, 2585, 2161, 2919, 2111, 1749, 1814, 1848, 1186, 2024, 635, 2653, 61, 110, 2881, 193, 667, 648, 220, 953, 1440, 1918, 1448, 1060, 258, 1439, 1314, 701, 788, 821, 1995, 2947, 1570, 7, 2910, 2889, 2553, 2768, 2690, 719, 2246, 2259, 2635, 837, 817, 734, 437, 2735, 1425, 428, 423, 375, 2773, 2800, 37, 29, 1388, 2580, 2066, 1745, 1604, 1898, 397, 2705, 2104, 558, 544, 492, 450, 1762, 2075, 1817, 1414, 2700, 2041, 236, 2786, 1943, 153, 139, 1948, 1969, 1975, 1980, 21, 656, 2694, 1412, 1138, 1411, 1401, 2231, 2156, 2150, 2264, 2482, 2497, 1265, 1548, 1132, 1737, 1988, 1058, 1020, 2126, 921, 880, 864, 1598, 2654, 1599, 2021],
+	Firing Rates: [10.0, 9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 5)),
+	Top Res Neurons: [1867, 1565, 1138, 1920, 1841, 1813, 1631, 1399, 1344, 1198, 1184, 1024, 2093, 799, 791, 780, 685, 354, 290, 159, 155, 136, 1964, 59, 2915, 2424, 2537, 2320, 2967, 541, 510, 2299, 1744, 846, 210, 2052, 2400, 772, 914, 2651, 2194, 828, 2517, 480, 430, 2758, 322, 318, 271, 2816, 2905, 2450, 2983, 1605, 1338, 1925, 2075, 1483, 1714, 2361, 1187, 2315, 406, 1959, 2272, 1969, 2804, 1847, 2012, 209, 2270, 2104, 108, 434, 1770, 490, 2330, 2414, 2667, 730, 734, 2564, 806, 1522, 844, 2395, 919, 989, 1121, 1294, 2240],
+	Firing Rates: [13.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Position: ((6, 6)),
+	Top Res Neurons: [989, 491, 1982, 1456, 755, 410, 1218, 2237, 1680, 2483, 2777, 2013, 2033, 1042, 1844, 1812, 2285, 2286, 614, 547, 243, 2711, 2933, 1656, 1272, 1066, 2964, 713, 682, 642, 1573, 476, 436, 380, 316, 310, 297, 218, 1529, 1730, 1583, 2297, 2793, 2754, 2628, 2623, 2622, 2477, 2462, 2401, 2393, 2386, 2292, 1636, 2066, 2061, 2000, 1970, 1911, 1877, 1776, 1695, 1663, 1640, 188],
+	Firing Rates: [9.0, 9.0, 8.0, 8.0, 8.0, 8.0, 7.0, 7.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 6.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]
+Positions (0, 0) and (0, 1) share {2286, 1495} neurons.
+Positions (0, 0) and (0, 3) share {1674, 989} neurons.
+Positions (0, 0) and (0, 4) share {2379, 1517} neurons.
+Positions (0, 0) and (0, 5) share {1536, 2528, 1803, 1483, 1712, 1138, 406, 2519, 152, 1526, 2910} neurons.
+Positions (0, 0) and (0, 6) share {2791, 1674, 759, 172, 2062, 989, 1009, 1495, 2237} neurons.
+Positions (0, 0) and (1, 4) share {755, 759} neurons.
+Positions (0, 0) and (1, 5) share {385, 1517} neurons.
+Positions (0, 0) and (2, 2) share {281, 755, 1495} neurons.
+Positions (0, 0) and (2, 4) share {172, 2884} neurons.
+Positions (0, 0) and (2, 6) share {1803, 406} neurons.
+Positions (0, 0) and (3, 0) share {281, 1663, 989, 2791} neurons.
+Positions (0, 0) and (3, 1) share {2910, 2237, 406} neurons.
+Positions (0, 0) and (3, 3) share {1674, 989} neurons.
+Positions (0, 0) and (3, 4) share {841, 2379, 1517, 21, 759} neurons.
+Positions (0, 0) and (3, 5) share {745, 1138, 2537} neurons.
+Positions (0, 0) and (3, 6) share {2791, 309, 2904, 380, 316, 989} neurons.
+Positions (0, 0) and (4, 4) share {946, 2677, 2062} neurons.
+Positions (0, 0) and (4, 5) share {1517, 1947, 2237, 46} neurons.
+Positions (0, 0) and (5, 0) share {745, 1483, 1803, 46, 622, 406, 1495} neurons.
+Positions (0, 0) and (5, 1) share {21, 406} neurons.
+Positions (0, 0) and (5, 2) share {1776, 755, 1109} neurons.
+Positions (0, 0) and (5, 3) share {611, 406} neurons.
+Positions (0, 0) and (5, 4) share {2237, 2286} neurons.
+Positions (0, 0) and (5, 5) share {1536, 2528, 1495, 994, 1384, 1803, 172, 1776, 21, 406, 1109, 2904, 2677, 1526, 1947, 989, 2910} neurons.
+Positions (0, 0) and (5, 6) share {1803, 406} neurons.
+Positions (0, 0) and (6, 0) share {21, 2677, 406, 2237} neurons.
+Positions (0, 0) and (6, 3) share {1674, 946, 755, 21, 2677, 380, 989} neurons.
+Positions (0, 0) and (6, 4) share {1138, 21, 2910} neurons.
+Positions (0, 0) and (6, 5) share {2537, 1483, 1138, 406, 989, 799} neurons.
+Positions (0, 0) and (6, 6) share {2286, 1776, 755, 2237, 380, 410, 316, 989, 1663} neurons.
+Positions (0, 1) and (0, 2) share {2547, 1204, 2607} neurons.
+Positions (0, 1) and (0, 4) share {1762, 2174} neurons.
+Positions (0, 1) and (0, 6) share {2448, 1495} neurons.
+Positions (0, 1) and (1, 4) share {1204, 2607} neurons.
+Positions (0, 1) and (2, 1) share {1482, 1524} neurons.
+Positions (0, 1) and (2, 2) share {1094, 1495} neurons.
+Positions (0, 1) and (2, 4) share {1094, 1142, 1547, 702} neurons.
+Positions (0, 1) and (3, 1) share {802, 1987, 1762, 1094, 744, 2607, 720, 1204} neurons.
+Positions (0, 1) and (4, 3) share {2448, 1047} neurons.
+Positions (0, 1) and (4, 4) share {2885, 1547, 656, 2961, 2547} neurons.
+Positions (0, 1) and (5, 0) share {2547, 1495} neurons.
+Positions (0, 1) and (5, 3) share {1547, 2285} neurons.
+Positions (0, 1) and (5, 4) share {802, 1094, 2286, 2960, 1142} neurons.
+Positions (0, 1) and (5, 5) share {1762, 2448, 894, 2547, 1495, 2174} neurons.
+Positions (0, 1) and (6, 1) share {1762, 2174} neurons.
+Positions (0, 1) and (6, 4) share {656, 1762} neurons.
+Positions (0, 1) and (6, 6) share {2285, 2477, 2286} neurons.
+Positions (0, 2) and (0, 5) share {1829, 1198, 271, 846, 593, 114, 2323, 1015, 152, 2617} neurons.
+Positions (0, 2) and (1, 0) share {1448, 1314, 2956} neurons.
+Positions (0, 2) and (1, 4) share {257, 104, 2607, 2483, 1204, 1339} neurons.
+Positions (0, 2) and (1, 5) share {1448, 104, 2917, 2671} neurons.
+Positions (0, 2) and (1, 6) share {1448, 202, 2956} neurons.
+Positions (0, 2) and (2, 2) share {644, 1126, 1446, 104, 939, 2155, 2619} neurons.
+Positions (0, 2) and (2, 4) share {1339, 2725, 1871} neurons.
+Positions (0, 2) and (2, 5) share {1126, 1490, 467, 2547, 2743} neurons.
+Positions (0, 2) and (3, 1) share {1204, 2607} neurons.
+Positions (0, 2) and (3, 2) share {1542, 263, 1448, 557, 1647, 2671, 593, 1621, 856, 605, 2462, 1471} neurons.
+Positions (0, 2) and (3, 4) share {2585, 2450, 1570} neurons.
+Positions (0, 2) and (3, 5) share {2380, 1198, 1471} neurons.
+Positions (0, 2) and (3, 6) share {593, 1314} neurons.
+Positions (0, 2) and (4, 0) share {1448, 2956, 1471} neurons.
+Positions (0, 2) and (4, 2) share {1490, 467} neurons.
+Positions (0, 2) and (4, 3) share {2450, 1314, 206, 2380} neurons.
+Positions (0, 2) and (4, 5) share {1314, 1570, 1542, 263, 1448, 104, 202, 2155, 2956, 2381, 1647, 2671, 114, 856} neurons.
+Positions (0, 2) and (5, 2) share {1446, 202, 2380, 2607, 2585, 2462} neurons.
+Positions (0, 2) and (5, 3) share {605, 1422} neurons.
+Positions (0, 2) and (5, 5) share {644, 2743, 727, 2155, 2188, 557, 2350, 2381, 593, 1490, 2323, 467, 2547, 2103, 2617, 124, 1471} neurons.
+Positions (0, 2) and (6, 2) share {644, 2188, 114, 1906, 605, 1183} neurons.
+Positions (0, 2) and (6, 4) share {1314, 1570, 1448, 2585, 2111} neurons.
+Positions (0, 2) and (6, 5) share {846, 2450, 1198, 271} neurons.
+Positions (0, 2) and (6, 6) share {2483, 2462} neurons.
+Positions (0, 3) and (0, 6) share {1218, 989, 1982, 1674} neurons.
+Positions (0, 3) and (3, 3) share {1674, 1963, 989, 2718} neurons.
+Positions (0, 3) and (3, 6) share {989, 1982} neurons.
+Positions (0, 3) and (4, 3) share {1218, 2711} neurons.
+Positions (0, 3) and (5, 5) share {989, 2711} neurons.
+Positions (0, 3) and (6, 3) share {1218, 1674, 2718, 2711, 989, 1982} neurons.
+Positions (0, 3) and (6, 6) share {1218, 491, 2711, 989, 1982} neurons.
+Positions (0, 4) and (1, 1) share {2881, 153, 1762, 1363} neurons.
+Positions (0, 4) and (1, 4) share {701, 734} neurons.
+Positions (0, 4) and (1, 5) share {733, 1517, 1492, 917} neurons.
+Positions (0, 4) and (1, 6) share {153, 1265} neurons.
+Positions (0, 4) and (2, 2) share {756, 701} neurons.
+Positions (0, 4) and (2, 3) share {2315, 572, 1413} neurons.
+Positions (0, 4) and (2, 4) share {2881, 2855, 558, 756, 2526} neurons.
+Positions (0, 4) and (3, 4) share {2881, 1956, 2982, 2379, 1517, 558, 2927, 1265, 701, 734} neurons.
+Positions (0, 4) and (4, 1) share {2881, 153} neurons.
+Positions (0, 4) and (4, 2) share {2418, 2982} neurons.
+Positions (0, 4) and (4, 5) share {41, 2724, 1517} neurons.
+Positions (0, 4) and (5, 4) share {1248, 386, 2724, 2982, 2855, 41, 558, 405, 2520} neurons.
+Positions (0, 4) and (5, 5) share {1762, 2322, 1843, 2418, 405, 2174, 701, 2526} neurons.
+Positions (0, 4) and (6, 1) share {1762, 2174} neurons.
+Positions (0, 4) and (6, 4) share {2881, 1762, 558, 1265, 153, 701, 734} neurons.
+Positions (0, 4) and (6, 5) share {2315, 734} neurons.
+Positions (0, 5) and (1, 5) share {705, 1191, 2924, 1914, 156} neurons.
+Positions (0, 5) and (1, 6) share {1714, 115, 236, 430} neurons.
+Positions (0, 5) and (2, 1) share {2177, 846, 406, 1191} neurons.
+Positions (0, 5) and (2, 2) share {1191, 2092, 1714, 115, 216, 1914, 541} neurons.
+Positions (0, 5) and (2, 4) share {2177, 1642} neurons.
+Positions (0, 5) and (2, 6) share {1803, 406} neurons.
+Positions (0, 5) and (3, 0) share {354, 156} neurons.
+Positions (0, 5) and (3, 1) share {1808, 2910, 685, 406} neurons.
+Positions (0, 5) and (3, 2) share {593, 1770} neurons.
+Positions (0, 5) and (3, 4) share {209, 236} neurons.
+Positions (0, 5) and (3, 5) share {354, 806, 685, 1198, 1714, 1138, 1399} neurons.
+Positions (0, 5) and (3, 6) share {593, 2177} neurons.
+Positions (0, 5) and (4, 0) share {236, 270} neurons.
+Positions (0, 5) and (4, 2) share {209, 1770} neurons.
+Positions (0, 5) and (4, 3) share {236, 270} neurons.
+Positions (0, 5) and (4, 5) share {705, 114, 2548, 1399} neurons.
+Positions (0, 5) and (4, 6) share {236, 1191} neurons.
+Positions (0, 5) and (5, 0) share {1920, 1802, 1483, 1803, 236, 406} neurons.
+Positions (0, 5) and (5, 1) share {406, 1191} neurons.
+Positions (0, 5) and (5, 2) share {685, 806} neurons.
+Positions (0, 5) and (5, 5) share {1536, 2177, 2698, 1802, 1803, 270, 15, 2323, 406, 156, 2092, 1844, 2617, 705, 593, 209, 2642, 599, 1117, 2910, 2528, 1642, 2924, 236, 1012, 1526, 1399} neurons.
+Positions (0, 5) and (5, 6) share {2177, 1803, 406} neurons.
+Positions (0, 5) and (6, 2) share {1992, 1770, 430, 114} neurons.
+Positions (0, 5) and (6, 3) share {2924, 1191} neurons.
+Positions (0, 5) and (6, 4) share {1138, 236, 2910} neurons.
+Positions (0, 5) and (6, 5) share {1920, 271, 406, 541, 806, 685, 430, 1198, 1714, 828, 318, 1344, 1605, 1483, 846, 209, 2400, 354, 1770, 1138, 1399} neurons.
+Positions (0, 6) and (1, 1) share {2264, 2735} neurons.
+Positions (0, 6) and (1, 4) share {1003, 759} neurons.
+Positions (0, 6) and (2, 2) share {432, 1495} neurons.
+Positions (0, 6) and (2, 3) share {1456, 627} neurons.
+Positions (0, 6) and (2, 5) share {777, 347, 1340} neurons.
+Positions (0, 6) and (2, 6) share {1456, 2356, 575} neurons.
+Positions (0, 6) and (3, 0) share {2791, 2632, 2445, 1682, 989} neurons.
+Positions (0, 6) and (3, 1) share {2264, 685, 2237} neurons.
+Positions (0, 6) and (3, 3) share {1674, 989} neurons.
+Positions (0, 6) and (3, 5) share {685, 1847} neurons.
+Positions (0, 6) and (3, 6) share {2791, 1068, 2445, 1456, 432, 1682, 989, 1982} neurons.
+Positions (0, 6) and (4, 2) share {2735, 2445, 1199} neurons.
+Positions (0, 6) and (4, 3) share {1088, 1569, 1218, 1068, 2448, 1456, 1237, 1815, 408, 1534} neurons.
+Positions (0, 6) and (4, 4) share {1003, 2062} neurons.
+Positions (0, 6) and (4, 5) share {807, 777, 595, 2264, 2237} neurons.
+Positions (0, 6) and (4, 6) share {1792, 2264} neurons.
+Positions (0, 6) and (5, 3) share {2632, 1456, 627, 1847, 1464, 1243} neurons.
+Positions (0, 6) and (5, 4) share {2445, 1199, 2237, 2457, 1885} neurons.
+Positions (0, 6) and (5, 5) share {1824, 1495, 172, 2448, 727, 347, 989, 2207} neurons.
+Positions (0, 6) and (5, 6) share {1456, 1682, 1237, 408, 893, 1534} neurons.
+Positions (0, 6) and (6, 1) share {2264, 575} neurons.
+Positions (0, 6) and (6, 3) share {1218, 1609, 1674, 1003, 877, 1237, 989, 1982} neurons.
+Positions (0, 6) and (6, 4) share {2264, 2786, 2735} neurons.
+Positions (0, 6) and (6, 5) share {989, 685, 1847} neurons.
+Positions (0, 6) and (6, 6) share {1218, 1730, 2628, 1456, 989, 2964, 476, 2237, 1982} neurons.
+Positions (1, 0) and (1, 3) share {835, 1673, 236, 1583, 2705, 561, 2493} neurons.
+Positions (1, 0) and (1, 5) share {1448, 2651} neurons.
+Positions (1, 0) and (1, 6) share {835, 2692, 1448, 1673, 2761, 2956, 236, 1167, 815, 1583, 561, 626, 2836, 2493, 1439} neurons.
+Positions (1, 0) and (2, 4) share {2705, 2891, 815} neurons.
+Positions (1, 0) and (3, 4) share {626, 236} neurons.
+Positions (1, 0) and (4, 0) share {1448, 626, 2956, 236} neurons.
+Positions (1, 0) and (4, 3) share {1314, 2402, 2692, 236, 2493, 1439} neurons.
+Positions (1, 0) and (4, 5) share {1448, 1314, 2956, 374} neurons.
+Positions (1, 0) and (4, 6) share {1314, 2692, 1673, 2761, 236, 2222, 1583, 2705, 1439} neurons.
+Positions (1, 0) and (5, 0) share {236, 622, 1167} neurons.
+Positions (1, 0) and (5, 4) share {815, 1167} neurons.
+Positions (1, 0) and (5, 5) share {626, 236, 2222, 1167} neurons.
+Positions (1, 0) and (6, 3) share {2920, 1646, 1167} neurons.
+Positions (1, 0) and (6, 4) share {1314, 1448, 236, 2705, 1439} neurons.
+Positions (1, 1) and (1, 5) share {2264, 1100} neurons.
+Positions (1, 1) and (1, 6) share {153, 1867, 1709, 815} neurons.
+Positions (1, 1) and (2, 2) share {200, 2722, 2245, 2542} neurons.
+Positions (1, 1) and (2, 4) share {2881, 2725, 1990, 200, 815, 215} neurons.
+Positions (1, 1) and (2, 6) share {2722, 786} neurons.
+Positions (1, 1) and (3, 1) share {200, 786, 1762, 2264} neurons.
+Positions (1, 1) and (3, 2) share {2819, 1100, 2542} neurons.
+Positions (1, 1) and (3, 4) share {2881, 786, 2733} neurons.
+Positions (1, 1) and (3, 5) share {1867, 1239} neurons.
+Positions (1, 1) and (4, 1) share {2881, 2722, 1990, 200, 1641, 153} neurons.
+Positions (1, 1) and (4, 2) share {1440, 1867, 2735} neurons.
+Positions (1, 1) and (4, 4) share {2560, 215, 815} neurons.
+Positions (1, 1) and (4, 5) share {2264, 1349} neurons.
+Positions (1, 1) and (4, 6) share {2264, 26, 98} neurons.
+Positions (1, 1) and (5, 4) share {1349, 2725, 1990, 200, 2542, 815, 215} neurons.
+Positions (1, 1) and (5, 5) share {1762, 2245, 2602, 310, 407} neurons.
+Positions (1, 1) and (5, 6) share {2722, 1100} neurons.
+Positions (1, 1) and (6, 1) share {2264, 1762, 786} neurons.
+Positions (1, 1) and (6, 3) share {1440, 200} neurons.
+Positions (1, 1) and (6, 4) share {1440, 2881, 1762, 2735, 2264, 153} neurons.
+Positions (1, 2) and (2, 4) share {2785, 535, 2198, 151, 1339, 1660, 1662} neurons.
+Positions (1, 2) and (2, 5) share {1144, 1368, 2779, 1308, 1662} neurons.
+Positions (1, 2) and (3, 4) share {1368, 379} neurons.
+Positions (1, 2) and (3, 5) share {384, 780, 1184} neurons.
+Positions (1, 2) and (4, 2) share {1184, 2273, 2735, 2639, 888, 151, 1368, 2779, 1662} neurons.
+Positions (1, 2) and (4, 5) share {384, 769, 2565, 2779, 1662} neurons.
+Positions (1, 2) and (5, 4) share {1184, 535, 151, 1660, 542} neurons.
+Positions (1, 2) and (5, 5) share {384, 2785, 2951, 1511, 2666, 2639, 466, 379, 2779, 1308, 542} neurons.
+Positions (1, 2) and (5, 6) share {1660, 1662} neurons.
+Positions (1, 2) and (6, 4) share {1368, 379, 2735} neurons.
+Positions (1, 2) and (6, 5) share {1184, 780} neurons.
+Positions (1, 3) and (1, 6) share {835, 2393, 1673, 236, 1583, 561, 881, 1941, 1305, 2493} neurons.
+Positions (1, 3) and (3, 2) share {1941, 2319} neurons.
+Positions (1, 3) and (3, 4) share {2450, 236} neurons.
+Positions (1, 3) and (3, 5) share {2393, 881} neurons.
+Positions (1, 3) and (3, 6) share {2393, 2319} neurons.
+Positions (1, 3) and (4, 0) share {1305, 236} neurons.
+Positions (1, 3) and (4, 3) share {236, 2553, 881, 2450, 2393, 2493} neurons.
+Positions (1, 3) and (4, 6) share {1673, 1900, 236, 1583, 2705, 1305} neurons.
+Positions (1, 3) and (5, 5) share {2393, 236, 881} neurons.
+Positions (1, 3) and (6, 3) share {1305, 1689, 1900, 142} neurons.
+Positions (1, 3) and (6, 4) share {2705, 236, 2553} neurons.
+Positions (1, 3) and (6, 6) share {2393, 1583} neurons.
+Positions (1, 4) and (2, 1) share {1818, 2747, 1003} neurons.
+Positions (1, 4) and (2, 2) share {104, 755, 216, 2266, 1051, 701} neurons.
+Positions (1, 4) and (3, 1) share {1204, 2607} neurons.
+Positions (1, 4) and (3, 4) share {701, 734, 759} neurons.
+Positions (1, 4) and (3, 5) share {1904, 2282} neurons.
+Positions (1, 4) and (4, 4) share {2, 738, 358, 2282, 1099, 1003, 341, 1432, 1818, 2747, 2686} neurons.
+Positions (1, 4) and (4, 5) share {104, 2266} neurons.
+Positions (1, 4) and (5, 2) share {755, 2607} neurons.
+Positions (1, 4) and (5, 4) share {1904, 2433} neurons.
+Positions (1, 4) and (5, 5) share {2802, 140, 701, 175} neurons.
+Positions (1, 4) and (6, 3) share {1003, 755} neurons.
+Positions (1, 4) and (6, 4) share {701, 734} neurons.
+Positions (1, 4) and (6, 6) share {2483, 755} neurons.
+Positions (1, 5) and (2, 0) share {890, 1187} neurons.
+Positions (1, 5) and (2, 2) share {104, 1914, 1187, 1191} neurons.
+Positions (1, 5) and (2, 4) share {2482, 1821, 614} neurons.
+Positions (1, 5) and (2, 5) share {1784, 1873, 2667, 2779} neurons.
+Positions (1, 5) and (3, 2) share {1448, 1100, 1517, 2671} neurons.
+Positions (1, 5) and (3, 4) share {1517, 375, 61, 1967} neurons.
+Positions (1, 5) and (3, 5) share {2104, 2194, 1187, 1470} neurons.
+Positions (1, 5) and (4, 2) share {1873, 2779} neurons.
+Positions (1, 5) and (4, 5) share {390, 2194, 767, 35, 1187, 1190, 1448, 825, 705, 2498, 1611, 2264, 2779, 614, 1127, 104, 2922, 1517, 2671, 1782, 375, 2810, 763, 1279} neurons.
+Positions (1, 5) and (4, 6) share {2104, 2264, 1191} neurons.
+Positions (1, 5) and (5, 5) share {2843, 705, 2042, 1253, 1127, 585, 2924, 2482, 1784, 890, 2779, 156, 61, 1470} neurons.
+Positions (1, 5) and (5, 6) share {536, 1100, 375} neurons.
+Positions (1, 5) and (6, 3) share {229, 1191, 2924, 1836, 375} neurons.
+Positions (1, 5) and (6, 4) share {1448, 2482, 375, 2104, 2075, 61, 2264} neurons.
+Positions (1, 5) and (6, 5) share {1187, 2075, 2667, 2194, 2104, 2651} neurons.
+Positions (1, 6) and (2, 1) share {153, 387, 108, 1524} neurons.
+Positions (1, 6) and (2, 2) share {108, 1714, 115, 1258} neurons.
+Positions (1, 6) and (2, 3) share {1636, 2836, 1709} neurons.
+Positions (1, 6) and (2, 5) share {881, 2354} neurons.
+Positions (1, 6) and (3, 2) share {1448, 1941, 1701} neurons.
+Positions (1, 6) and (3, 3) share {1202, 2774} neurons.
+Positions (1, 6) and (3, 4) share {1265, 626, 236} neurons.
+Positions (1, 6) and (3, 5) share {2393, 1714, 1867, 881} neurons.
+Positions (1, 6) and (3, 6) share {2393, 1524} neurons.
+Positions (1, 6) and (4, 0) share {1448, 236, 2956, 2061, 626, 1305} neurons.
+Positions (1, 6) and (4, 1) share {153, 2826, 2195} neurons.
+Positions (1, 6) and (4, 3) share {2692, 236, 1709, 525, 881, 2393, 2493, 1534, 1439} neurons.
+Positions (1, 6) and (4, 4) share {1305, 2006, 815} neurons.
+Positions (1, 6) and (4, 5) share {387, 1448, 202, 108, 2956} neurons.
+Positions (1, 6) and (4, 6) share {2692, 1671, 1673, 2761, 236, 525, 2061, 1583, 594, 1909, 1305, 1439} neurons.
+Positions (1, 6) and (5, 0) share {236, 2119, 1167} neurons.
+Positions (1, 6) and (5, 3) share {642, 1636, 594, 1671} neurons.
+Positions (1, 6) and (5, 4) share {815, 1167} neurons.
+Positions (1, 6) and (5, 5) share {1701, 236, 1167, 881, 626, 2393} neurons.
+Positions (1, 6) and (5, 6) share {2393, 1534} neurons.
+Positions (1, 6) and (6, 2) share {1941, 430, 1671} neurons.
+Positions (1, 6) and (6, 3) share {1701, 525, 2061, 1167, 1305} neurons.
+Positions (1, 6) and (6, 4) share {1448, 236, 1265, 153, 1439} neurons.
+Positions (1, 6) and (6, 5) share {1714, 1867, 108, 430} neurons.
+Positions (1, 6) and (6, 6) share {642, 1636, 2061, 1583, 2393} neurons.
+Positions (2, 0) and (2, 2) share {193, 1554, 1187, 756} neurons.
+Positions (2, 0) and (2, 3) share {1456, 1433, 2032} neurons.
+Positions (2, 0) and (2, 5) share {713, 2358, 2063} neurons.
+Positions (2, 0) and (2, 6) share {1121, 995, 713, 1644, 1456, 756, 406, 696} neurons.
+Positions (2, 0) and (3, 3) share {2032, 1121} neurons.
+Positions (2, 0) and (4, 3) share {1456, 674} neurons.
+Positions (2, 0) and (5, 0) share {193, 1121, 2022, 1032, 2032, 2868, 756, 406, 1433, 446} neurons.
+Positions (2, 0) and (5, 1) share {1579, 406} neurons.
+Positions (2, 0) and (5, 3) share {193, 1121, 1456, 2032, 2868, 406, 1433} neurons.
+Positions (2, 0) and (5, 5) share {193, 1032, 406, 890, 637} neurons.
+Positions (2, 0) and (5, 6) share {193, 1121, 1456, 406, 696} neurons.
+Positions (2, 0) and (6, 0) share {713, 2066, 406} neurons.
+Positions (2, 0) and (6, 4) share {193, 2066} neurons.
+Positions (2, 0) and (6, 5) share {2240, 1121, 1187, 1294, 406} neurons.
+Positions (2, 0) and (6, 6) share {1456, 713, 2066} neurons.
+Positions (2, 1) and (2, 2) share {108, 1863, 1191} neurons.
+Positions (2, 1) and (2, 4) share {2177, 2653, 1606} neurons.
+Positions (2, 1) and (3, 4) share {1817, 2041, 2653, 2919} neurons.
+Positions (2, 1) and (3, 6) share {2177, 1524} neurons.
+Positions (2, 1) and (4, 1) share {2177, 153, 2949, 1623} neurons.
+Positions (2, 1) and (4, 4) share {1818, 2747, 2862, 1003} neurons.
+Positions (2, 1) and (4, 5) share {108, 1562, 387, 932} neurons.
+Positions (2, 1) and (4, 6) share {1665, 2747, 1191} neurons.
+Positions (2, 1) and (5, 0) share {2128, 406} neurons.
+Positions (2, 1) and (5, 1) share {1191, 690, 2710, 406, 2041} neurons.
+Positions (2, 1) and (5, 3) share {932, 406} neurons.
+Positions (2, 1) and (5, 4) share {1817, 119, 1863} neurons.
+Positions (2, 1) and (5, 5) share {2177, 1955, 293, 849, 2673, 2710, 406, 1753, 1693, 2271} neurons.
+Positions (2, 1) and (5, 6) share {2673, 2177, 45, 406} neurons.
+Positions (2, 1) and (6, 2) share {1817, 932} neurons.
+Positions (2, 1) and (6, 3) share {1208, 2271, 1003, 1191} neurons.
+Positions (2, 1) and (6, 4) share {153, 2919, 423, 2041, 1817, 2653} neurons.
+Positions (2, 1) and (6, 5) share {846, 108, 406} neurons.
+Positions (2, 2) and (2, 4) share {200, 756, 1094} neurons.
+Positions (2, 2) and (2, 5) share {1704, 2995, 1133, 1126} neurons.
+Positions (2, 2) and (2, 6) share {2722, 4, 756} neurons.
+Positions (2, 2) and (3, 0) share {281, 2777} neurons.
+Positions (2, 2) and (3, 1) share {200, 1094} neurons.
+Positions (2, 2) and (3, 4) share {2768, 953, 1419, 701} neurons.
+Positions (2, 2) and (3, 5) share {513, 1377, 1187, 1714, 1813, 2934, 2424, 2777, 155} neurons.
+Positions (2, 2) and (3, 6) share {432, 998} neurons.
+Positions (2, 2) and (4, 1) share {200, 2722, 1261} neurons.
+Positions (2, 2) and (4, 5) share {1187, 104, 2155, 108, 143, 2934, 2777, 2266, 2906, 990} neurons.
+Positions (2, 2) and (4, 6) share {1554, 187, 1191} neurons.
+Positions (2, 2) and (5, 0) share {193, 756, 117, 1495} neurons.
+Positions (2, 2) and (5, 1) share {2661, 1191} neurons.
+Positions (2, 2) and (5, 2) share {1446, 2571, 112, 755, 186, 155} neurons.
+Positions (2, 2) and (5, 3) share {193, 2714, 2777, 998} neurons.
+Positions (2, 2) and (5, 4) share {1094, 1863, 200, 2542, 1882} neurons.
+Positions (2, 2) and (5, 5) share {193, 644, 2245, 1704, 2155, 2092, 2860, 1996, 1423, 112, 2451, 1495, 953, 186, 155, 701} neurons.
+Positions (2, 2) and (5, 6) share {193, 2722} neurons.
+Positions (2, 2) and (6, 2) share {644, 1423, 2768, 1554, 2239} neurons.
+Positions (2, 2) and (6, 3) share {200, 755, 1191} neurons.
+Positions (2, 2) and (6, 4) share {193, 2768, 1943, 953, 701} neurons.
+Positions (2, 2) and (6, 5) share {1187, 108, 2320, 1714, 1813, 2424, 155, 541} neurons.
+Positions (2, 2) and (6, 6) share {2777, 682, 755} neurons.
+Positions (2, 3) and (3, 3) share {2032, 1746, 572} neurons.
+Positions (2, 3) and (4, 3) share {1456, 1709} neurons.
+Positions (2, 3) and (5, 0) share {2032, 1433} neurons.
+Positions (2, 3) and (5, 3) share {129, 2754, 1636, 1420, 1456, 2032, 627, 1433} neurons.
+Positions (2, 3) and (6, 3) share {2032, 129, 1746} neurons.
+Positions (2, 3) and (6, 5) share {2315, 806} neurons.
+Positions (2, 3) and (6, 6) share {1456, 2754, 1636} neurons.
+Positions (2, 4) and (2, 6) share {756, 1573} neurons.
+Positions (2, 4) and (3, 1) share {200, 1660, 1094} neurons.
+Positions (2, 4) and (3, 2) share {2681, 1607} neurons.
+Positions (2, 4) and (3, 4) share {2881, 2653, 558} neurons.
+Positions (2, 4) and (4, 1) share {2881, 2177, 1990, 1607, 200, 2130} neurons.
+Positions (2, 4) and (4, 2) share {1259, 1662, 151} neurons.
+Positions (2, 4) and (4, 3) share {265, 1614} neurons.
+Positions (2, 4) and (4, 4) share {163, 1607, 1576, 7, 1547, 2732, 815, 215} neurons.
+Positions (2, 4) and (4, 5) share {2937, 1662, 614} neurons.
+Positions (2, 4) and (5, 0) share {2000, 131, 756} neurons.
+Positions (2, 4) and (5, 3) share {2891, 2474, 1547, 1573} neurons.
+Positions (2, 4) and (5, 4) share {131, 276, 535, 280, 151, 928, 2725, 2855, 558, 815, 1094, 1990, 200, 1614, 1616, 215, 1259, 1142, 2937, 1660, 766} neurons.
+Positions (2, 4) and (5, 5) share {960, 2177, 2690, 2785, 1642, 172, 2830, 2130, 2482, 214, 120, 537, 2526} neurons.
+Positions (2, 4) and (5, 6) share {2177, 1662, 1660, 265} neurons.
+Positions (2, 4) and (6, 2) share {131, 1893} neurons.
+Positions (2, 4) and (6, 4) share {544, 2881, 2690, 7, 2126, 558, 110, 2705, 719, 2482, 2653, 2654} neurons.
+Positions (2, 4) and (6, 6) share {2000, 243, 1573, 614} neurons.
+Positions (2, 5) and (3, 3) share {2099, 924} neurons.
+Positions (2, 5) and (3, 4) share {1368, 2733} neurons.
+Positions (2, 5) and (3, 5) share {944, 881} neurons.
+Positions (2, 5) and (3, 6) share {33, 2099} neurons.
+Positions (2, 5) and (4, 2) share {272, 1873, 1490, 467, 2418, 1368, 2779, 924, 1662} neurons.
+Positions (2, 5) and (4, 4) share {2882, 2547} neurons.
+Positions (2, 5) and (4, 5) share {580, 777, 944, 2779, 1662} neurons.
+Positions (2, 5) and (5, 0) share {2882, 2547} neurons.
+Positions (2, 5) and (5, 2) share {33, 95} neurons.
+Positions (2, 5) and (5, 5) share {2691, 268, 1812, 2710, 1308, 924, 2977, 1704, 1971, 2743, 1985, 2882, 580, 591, 2383, 1490, 467, 347, 2779, 225, 881, 2418, 2547, 2804, 1784} neurons.
+Positions (2, 5) and (5, 6) share {33, 1662} neurons.
+Positions (2, 5) and (6, 0) share {713, 2804, 1133} neurons.
+Positions (2, 5) and (6, 4) share {1368, 1599} neurons.
+Positions (2, 5) and (6, 5) share {2667, 2804} neurons.
+Positions (2, 5) and (6, 6) share {713, 1812} neurons.
+Positions (2, 6) and (3, 1) share {786, 406} neurons.
+Positions (2, 6) and (3, 6) share {1456, 2292} neurons.
+Positions (2, 6) and (4, 3) share {536, 1456} neurons.
+Positions (2, 6) and (5, 0) share {1121, 1803, 756, 406} neurons.
+Positions (2, 6) and (5, 3) share {1121, 1573, 1485, 1456, 406} neurons.
+Positions (2, 6) and (5, 5) share {1803, 406, 1727} neurons.
+Positions (2, 6) and (5, 6) share {1121, 2722, 2793, 1803, 696, 1456, 406, 536} neurons.
+Positions (2, 6) and (6, 0) share {713, 406} neurons.
+Positions (2, 6) and (6, 1) share {786, 575} neurons.
+Positions (2, 6) and (6, 3) share {1305, 549, 999} neurons.
+Positions (2, 6) and (6, 5) share {1121, 406} neurons.
+Positions (2, 6) and (6, 6) share {1573, 297, 2793, 713, 1456, 2292} neurons.
+Positions (3, 0) and (3, 5) share {1184, 354, 944, 2777, 2933, 1561} neurons.
+Positions (3, 0) and (3, 6) share {989, 1682, 2445, 2791} neurons.
+Positions (3, 0) and (4, 2) share {1184, 2445} neurons.
+Positions (3, 0) and (4, 5) share {944, 1561, 2777, 1349} neurons.
+Positions (3, 0) and (5, 3) share {2632, 1561, 2777, 1429} neurons.
+Positions (3, 0) and (5, 4) share {1184, 1349, 2445} neurons.
+Positions (3, 0) and (5, 5) share {156, 989} neurons.
+Positions (3, 0) and (6, 3) share {1561, 989} neurons.
+Positions (3, 0) and (6, 5) share {1184, 354, 989} neurons.
+Positions (3, 0) and (6, 6) share {2777, 2933, 989, 1663} neurons.
+Positions (3, 1) and (4, 1) share {200, 950} neurons.
+Positions (3, 1) and (4, 4) share {245, 2015} neurons.
+Positions (3, 1) and (4, 5) share {2264, 961, 2237} neurons.
+Positions (3, 1) and (5, 1) share {1630, 406} neurons.
+Positions (3, 1) and (5, 2) share {685, 2607} neurons.
+Positions (3, 1) and (5, 4) share {1825, 802, 2500, 1958, 1094, 200, 1808, 950, 2911, 1660, 2237, 2015} neurons.
+Positions (3, 1) and (5, 5) share {1762, 2021, 853, 406, 2910} neurons.
+Positions (3, 1) and (5, 6) share {961, 1660, 406} neurons.
+Positions (3, 1) and (6, 0) share {2237, 406} neurons.
+Positions (3, 1) and (6, 1) share {2264, 1762, 786, 1660} neurons.
+Positions (3, 1) and (6, 2) share {2237, 2911} neurons.
+Positions (3, 1) and (6, 3) share {200, 961} neurons.
+Positions (3, 1) and (6, 4) share {2264, 1762, 2021, 2910} neurons.
+Positions (3, 1) and (6, 5) share {685, 406} neurons.
+Positions (3, 2) and (3, 6) share {593, 2319} neurons.
+Positions (3, 2) and (4, 0) share {1448, 1471} neurons.
+Positions (3, 2) and (4, 4) share {2283, 1607} neurons.
+Positions (3, 2) and (4, 5) share {769, 1542, 263, 1448, 1517, 1647, 2671, 856} neurons.
+Positions (3, 2) and (5, 2) share {444, 2462} neurons.
+Positions (3, 2) and (5, 5) share {673, 1701, 2955, 557, 593, 1979, 1471} neurons.
+Positions (3, 2) and (5, 6) share {1100, 2886} neurons.
+Positions (3, 2) and (6, 2) share {2944, 1770, 605, 1941} neurons.
+Positions (3, 2) and (6, 3) share {1701, 2886} neurons.
+Positions (3, 2) and (6, 6) share {2386, 2462} neurons.
+Positions (3, 3) and (3, 6) share {2099, 989} neurons.
+Positions (3, 3) and (4, 5) share {913, 2718} neurons.
+Positions (3, 3) and (5, 0) share {2032, 1121} neurons.
+Positions (3, 3) and (5, 3) share {2032, 1121, 2099} neurons.
+Positions (3, 3) and (5, 5) share {912, 989, 924, 1693} neurons.
+Positions (3, 3) and (6, 3) share {1508, 1674, 1646, 912, 913, 1746, 2032, 697, 989, 2718} neurons.
+Positions (3, 3) and (6, 5) share {1121, 989} neurons.
+Positions (3, 4) and (4, 0) share {626, 236} neurons.
+Positions (3, 4) and (4, 1) share {2881, 635} neurons.
+Positions (3, 4) and (4, 2) share {1368, 209, 2942, 2982} neurons.
+Positions (3, 4) and (4, 3) share {2450, 236, 1020} neurons.
+Positions (3, 4) and (4, 4) share {656, 667} neurons.
+Positions (3, 4) and (4, 5) share {1517, 1570, 1749, 375} neurons.
+Positions (3, 4) and (5, 0) share {379, 236, 1438} neurons.
+Positions (3, 4) and (5, 1) share {2041, 21} neurons.
+Positions (3, 4) and (5, 3) share {1392, 2983} neurons.
+Positions (3, 4) and (5, 4) share {558, 1817, 2982, 2382} neurons.
+Positions (3, 4) and (5, 5) share {701, 236, 209, 626, 2932, 21, 953, 379, 61} neurons.
+Positions (3, 4) and (6, 2) share {2768, 1817, 2444} neurons.
+Positions (3, 4) and (6, 3) share {2243, 1956, 12, 1392, 21, 375, 2942} neurons.
+Positions (3, 4) and (6, 4) share {1283, 2440, 2444, 656, 21, 1814, 2585, 1817, 667, 1570, 37, 558, 1969, 953, 701, 1341, 61, 2881, 2768, 1749, 1368, 220, 2653, 734, 2919, 635, 492, 236, 1265, 375, 2041, 379, 1020} neurons.
+Positions (3, 4) and (6, 5) share {2983, 1969, 2450, 209, 734} neurons.
+Positions (3, 5) and (4, 2) share {1184, 745, 1867} neurons.
+Positions (3, 5) and (4, 3) share {2393, 2380, 881} neurons.
+Positions (3, 5) and (4, 5) share {384, 1187, 2093, 944, 2194, 2777, 2934, 1399, 1561, 2395} neurons.
+Positions (3, 5) and (5, 0) share {745, 2093} neurons.
+Positions (3, 5) and (5, 2) share {806, 780, 685, 2380, 2395, 155, 2270} neurons.
+Positions (3, 5) and (5, 3) share {1353, 1561, 2777, 1847} neurons.
+Positions (3, 5) and (5, 4) share {1184, 1580, 1904} neurons.
+Positions (3, 5) and (5, 5) share {384, 227, 881, 1399, 2393, 155, 2270, 1470, 1471} neurons.
+Positions (3, 5) and (6, 4) share {2104, 1138} neurons.
+Positions (3, 5) and (6, 5) share {2052, 780, 2194, 1813, 791, 155, 1565, 1184, 290, 1187, 806, 685, 1198, 2093, 1714, 1847, 2104, 1867, 2395, 2270, 354, 2537, 1138, 1399, 2424} neurons.
+Positions (3, 5) and (6, 6) share {2393, 2777, 2933} neurons.
+Positions (3, 6) and (4, 3) share {1456, 2393, 1314, 1068} neurons.
+Positions (3, 6) and (4, 5) share {1314, 1079} neurons.
+Positions (3, 6) and (5, 3) share {1456, 1398, 2099, 998} neurons.
+Positions (3, 6) and (5, 5) share {2177, 593, 564, 1622, 2904, 2393, 989} neurons.
+Positions (3, 6) and (5, 6) share {2177, 33, 1456, 1682, 2393} neurons.
+Positions (3, 6) and (6, 3) share {380, 989, 1982} neurons.
+Positions (3, 6) and (6, 6) share {1456, 2292, 380, 2393, 316, 989, 1982} neurons.
+Positions (4, 0) and (4, 3) share {236, 270} neurons.
+Positions (4, 0) and (4, 5) share {1448, 1562, 2956} neurons.
+Positions (4, 0) and (4, 6) share {1201, 236, 2061, 1305} neurons.
+Positions (4, 0) and (5, 5) share {626, 236, 270, 1471} neurons.
+Positions (4, 0) and (6, 3) share {1305, 2061} neurons.
+Positions (4, 0) and (6, 4) share {1448, 236} neurons.
+Positions (4, 1) and (4, 4) share {837, 2110, 1607} neurons.
+Positions (4, 1) and (5, 4) share {200, 1990, 950} neurons.
+Positions (4, 1) and (5, 5) share {2177, 2130} neurons.
+Positions (4, 1) and (5, 6) share {2177, 2722} neurons.
+Positions (4, 1) and (6, 4) share {2881, 153, 635, 837} neurons.
+Positions (4, 2) and (4, 5) share {2986, 2779, 1662} neurons.
+Positions (4, 2) and (5, 4) share {1184, 2982, 1259, 2445, 1199, 274, 151} neurons.
+Positions (4, 2) and (5, 5) share {2986, 1613, 2639, 209, 1490, 467, 2418, 471, 2779, 924} neurons.
+Positions (4, 2) and (6, 3) share {1440, 2942, 2775} neurons.
+Positions (4, 2) and (6, 4) share {1440, 1368, 2735} neurons.
+Positions (4, 2) and (6, 5) share {1184, 1770, 1867, 1294, 1841, 914, 209} neurons.
+Positions (4, 3) and (4, 5) share {1112, 1314, 1157, 378} neurons.
+Positions (4, 3) and (4, 6) share {1314, 2692, 2153, 236, 525, 1439} neurons.
+Positions (4, 3) and (5, 4) share {2587, 1614, 559} neurons.
+Positions (4, 3) and (5, 5) share {1635, 2393, 236, 270, 559, 2448, 974, 2322, 881, 2711, 1753} neurons.
+Positions (4, 3) and (5, 6) share {265, 536, 1456, 1237, 408, 2393, 1534} neurons.
+Positions (4, 3) and (6, 3) share {1237, 1218, 525, 2711} neurons.
+Positions (4, 3) and (6, 4) share {1314, 236, 2553, 1020, 1439} neurons.
+Positions (4, 3) and (6, 6) share {1456, 2393, 1218, 2711} neurons.
+Positions (4, 4) and (4, 6) share {1305, 2747} neurons.
+Positions (4, 4) and (5, 0) share {2882, 2547} neurons.
+Positions (4, 4) and (5, 2) share {2040, 2306} neurons.
+Positions (4, 4) and (5, 4) share {2015, 815, 215} neurons.
+Positions (4, 4) and (5, 5) share {2882, 1253, 1843, 2547, 2677, 1046, 634} neurons.
+Positions (4, 4) and (6, 0) share {2066, 2677} neurons.
+Positions (4, 4) and (6, 3) share {1305, 946, 1003, 2677} neurons.
+Positions (4, 4) and (6, 4) share {837, 7, 656, 880, 2066, 667} neurons.
+Positions (4, 5) and (4, 6) share {2264, 1314, 2718} neurons.
+Positions (4, 5) and (5, 0) share {2093, 46} neurons.
+Positions (4, 5) and (5, 2) share {202, 2395} neurons.
+Positions (4, 5) and (5, 3) share {1561, 932, 1485, 2777} neurons.
+Positions (4, 5) and (5, 4) share {2724, 1349, 41, 2937, 2237} neurons.
+Positions (4, 5) and (5, 5) share {384, 705, 2147, 580, 1947, 1127, 1352, 2986, 2155, 2381, 1966, 911, 368, 1399, 2779, 157} neurons.
+Positions (4, 5) and (5, 6) share {961, 1662, 375} neurons.
+Positions (4, 5) and (6, 1) share {2264, 157} neurons.
+Positions (4, 5) and (6, 2) share {114, 2139, 932, 2237} neurons.
+Positions (4, 5) and (6, 3) share {961, 913, 375, 1561, 2718} neurons.
+Positions (4, 5) and (6, 4) share {1570, 1314, 1448, 1749, 375, 2264} neurons.
+Positions (4, 5) and (6, 5) share {1187, 772, 108, 2093, 2194, 1399, 2395} neurons.
+Positions (4, 5) and (6, 6) share {1680, 2777, 2237, 614} neurons.
+Positions (4, 6) and (5, 1) share {26, 1191} neurons.
+Positions (4, 6) and (5, 3) share {594, 1819, 1671} neurons.
+Positions (4, 6) and (5, 5) share {236, 2222, 1742, 1330, 1555, 1979, 1695} neurons.
+Positions (4, 6) and (6, 2) share {1554, 1671} neurons.
+Positions (4, 6) and (6, 3) share {1191, 1900, 525, 2061, 1330, 340, 1305, 2718} neurons.
+Positions (4, 6) and (6, 4) share {1314, 1439, 236, 2705, 2104, 2264} neurons.
+Positions (4, 6) and (6, 6) share {2401, 2061, 1583, 2033, 1695} neurons.
+Positions (5, 0) and (5, 1) share {2434, 406} neurons.
+Positions (5, 0) and (5, 3) share {193, 1121, 2032, 2868, 1685, 406, 1433} neurons.
+Positions (5, 0) and (5, 4) share {131, 1167} neurons.
+Positions (5, 0) and (5, 5) share {1793, 1032, 1288, 1802, 1803, 1167, 1685, 406, 669, 1451, 812, 193, 834, 2882, 1495, 236, 2547, 2807, 379} neurons.
+Positions (5, 0) and (5, 6) share {193, 2434, 1121, 1803, 406, 1820} neurons.
+Positions (5, 0) and (6, 3) share {2032, 1167} neurons.
+Positions (5, 0) and (6, 4) share {1288, 193, 379, 236} neurons.
+Positions (5, 0) and (6, 5) share {1920, 1121, 1483, 2093, 406} neurons.
+Positions (5, 1) and (5, 5) share {1849, 2710, 21, 406} neurons.
+Positions (5, 1) and (5, 6) share {2434, 406} neurons.
+Positions (5, 1) and (6, 0) share {21, 406} neurons.
+Positions (5, 1) and (6, 3) share {21, 1191} neurons.
+Positions (5, 1) and (6, 4) share {2041, 21} neurons.
+Positions (5, 2) and (5, 5) share {1763, 2212, 2106, 655, 112, 1776, 1109, 186, 155, 637, 2270} neurons.
+Positions (5, 2) and (6, 3) share {2106, 755} neurons.
+Positions (5, 2) and (6, 5) share {806, 780, 685, 2395, 2967, 155, 2270} neurons.
+Positions (5, 2) and (6, 6) share {1776, 755, 1877, 2013, 2462} neurons.
+Positions (5, 3) and (5, 4) share {2561, 353} neurons.
+Positions (5, 3) and (5, 5) share {193, 1018, 1685, 406} neurons.
+Positions (5, 3) and (5, 6) share {193, 1121, 2285, 1456, 406} neurons.
+Positions (5, 3) and (6, 0) share {1154, 406} neurons.
+Positions (5, 3) and (6, 2) share {932, 605, 1671} neurons.
+Positions (5, 3) and (6, 3) share {2032, 129, 1392, 1561} neurons.
+Positions (5, 3) and (6, 5) share {1121, 1847, 406, 2983} neurons.
+Positions (5, 3) and (6, 6) share {2754, 642, 1636, 1573, 2285, 1456, 2777} neurons.
+Positions (5, 4) and (5, 5) share {1167, 559, 405, 2843, 284, 542} neurons.
+Positions (5, 4) and (6, 2) share {131, 1711, 559, 1817, 2237, 2911} neurons.
+Positions (5, 4) and (6, 3) share {200, 1167} neurons.
+Positions (5, 4) and (6, 4) share {864, 1817, 558} neurons.
+Positions (5, 4) and (6, 6) share {1272, 491, 2237, 2286} neurons.
+Positions (5, 5) and (5, 6) share {2177, 193, 328, 1803, 2673, 406, 2393, 442} neurons.
+Positions (5, 5) and (6, 0) share {21, 2804, 2677, 406} neurons.
+Positions (5, 5) and (6, 1) share {442, 1762, 157, 2174} neurons.
+Positions (5, 5) and (6, 2) share {2883, 644, 2188, 559, 1423} neurons.
+Positions (5, 5) and (6, 3) share {2271, 2106, 1701, 2711, 938, 2924, 1167, 912, 442, 18, 1330, 989, 21, 2134, 2677, 1050, 2141, 1215} neurons.
+Positions (5, 5) and (6, 4) share {193, 2690, 1762, 1411, 450, 2150, 701, 1288, 1988, 2021, 236, 2482, 21, 953, 379, 61, 2910} neurons.
+Positions (5, 5) and (6, 5) share {2564, 209, 2804, 406, 1399, 2905, 155, 989, 2270, 1631} neurons.
+Positions (5, 5) and (6, 6) share {1776, 1970, 1812, 1844, 310, 2711, 2393, 989, 1695} neurons.
+Positions (5, 6) and (6, 1) share {442, 1660} neurons.
+Positions (5, 6) and (6, 3) share {961, 2886, 1237, 375, 442} neurons.
+Positions (5, 6) and (6, 4) share {193, 1980, 375} neurons.
+Positions (5, 6) and (6, 5) share {1121, 2517, 406} neurons.
+Positions (5, 6) and (6, 6) share {2793, 2285, 1456, 436, 2393} neurons.
+Positions (6, 0) and (6, 3) share {21, 2677} neurons.
+Positions (6, 0) and (6, 4) share {2066, 21} neurons.
+Positions (6, 0) and (6, 5) share {2804, 406} neurons.
+Positions (6, 0) and (6, 6) share {713, 2066, 2237, 218} neurons.
+Positions (6, 1) and (6, 4) share {2264, 1762} neurons.
+Positions (6, 2) and (6, 4) share {2768, 1817, 2444} neurons.
+Positions (6, 2) and (6, 5) share {1770, 430} neurons.
+Positions (6, 3) and (6, 4) share {1440, 2497, 1412, 21, 375} neurons.
+Positions (6, 3) and (6, 5) share {490, 844, 989} neurons.
+Positions (6, 3) and (6, 6) share {1218, 1640, 2061, 755, 2711, 380, 989, 1982} neurons.
+Positions (6, 4) and (6, 5) share {1969, 1138, 2104, 2075, 734} neurons.
+
+Process finished with exit code 0

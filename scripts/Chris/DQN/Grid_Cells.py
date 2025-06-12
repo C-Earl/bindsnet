@@ -200,7 +200,7 @@ class GC_Module:
       fig, ax = plt.subplots()
 
     for i, gc in enumerate(self.grid_cells):
-      gc.plot_peaks(x_range, y_range, self.colors[i], pos=False, contours=False, fig=fig, ax=ax)
+      gc.plot_peaks(x_range, y_range, self.colors[i], pos=False, contours=True, fig=fig, ax=ax)
     
     if contours:
       for i, gc in enumerate(self.grid_cells):

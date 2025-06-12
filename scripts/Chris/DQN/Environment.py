@@ -56,7 +56,7 @@ class Maze_Environment():
     reward_trace[reward_trace == -np.inf] = 0  # Replace np.inf with 0
     return reward_trace.T
 
-  def plot(self, agent_coords, q_table: dict, ax=None):
+  def plot(self, agent_coords, q_table: dict, state_behavior: np.ndarray, ax=None):
     if ax is None:
       fig, ax = plt.subplots()
 
@@ -97,6 +97,13 @@ class Maze_Environment():
           ax.text(row+0.4, column, f'{q_values[1]:.2f}E', ha='center', va='center', rotation=90)
           ax.text(row, column+0.4, f'{q_values[2]:.2f}N', ha='center', va='center')
           ax.text(row-0.4, column, f'{q_values[3]:.2f}W', ha='center', va='center', rotation=90)
+
+        if state_behavior is not None:
+          activity = state_behavior[column, row]
+          ax.text(row, column+0.2, f'{activity[0]}', ha='center', va='center')
+          ax.text(row+0.2, column, f'{activity[1]}', ha='center', va='center')
+          ax.text(row, column-0.2, f'{activity[2]}', ha='center', va='center')
+          ax.text(row-0.2, column, f'{activity[3]}', ha='center', va='center')
 
     # Plot agent
     ax.plot(agent_coords[0], agent_coords[1], 'yo')
@@ -177,3 +184,13 @@ class Grid_Cell_Maze_Environment(Maze_Environment):
   def state_to_grid_cell_spikes(self, cell):
     return self.samples[cell.coordinates]
 
+
+if __name__ == '__main__':
+  np.random.seed(1)
+  with open('saves/2000_res_7_7_maze.pkl', 'rb') as f:
+    in_spikes = pkl.load(f)
+  maze = Grid_Cell_Maze_Environment(7, 7, in_spikes, trace_length=0)
+  maze.plot(agent_coords=(0, 0), q_table=None, state_behavior=None)
+  plt.savefig('maze_7_7_plot.png')
+  with open('maze_7_7.pkl', 'wb') as f:
+    pkl.dump(maze, f)

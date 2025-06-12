@@ -66,6 +66,11 @@ def diversity(spike_trains: np.array):
   return correlations
 
 
+# Sum every 5 indices to shorten/simplify spike_train for plotting
+def simplify_spikes(spike_trains: np.array, sum_len: int):
+  simp_spikes = spike_trains.reshape(spike_trains.shape[0], sum_len, -1).sum(axis=1)
+  return simp_spikes
+
 # Determine which pre-synaptic neuron is most relevant
 # Return index of top n most relevant (non-zero) neurons
 def relevant_neurons(spike_train: torch.tensor, threshold: int = 4):
@@ -94,16 +99,14 @@ def generate_grid_out_weights(in_size, out_size, sparsity, w_range):
 
 # Generate random weights for the reservoir to output connections
 # Cumulative sum of weights for each pre-synaptic neuron (row) is equal to pre_synaptic_magnitude
-def generate_res_out_weights(in_size, out_size, pre_synaptic_magnitude, noise_scale=1):
-  # Base array of evenly distributed weights
-  base_val = pre_synaptic_magnitude / out_size
-  w = np.full((in_size, out_size), base_val)
-  # Add noise to weights
-  noise = 1 + noise_scale * (2 * np.random.rand(in_size, out_size) - 1)
-  w *= noise
-  # Renormalize
-  sum = w.sum(axis=1, keepdims=True)
-  w *= pre_synaptic_magnitude / sum
+def generate_res_out_weights(in_size, out_size, sparsity, w_range):
+  wmin, wmax = w_range
+  w = np.zeros(in_size * out_size)
+  num_ones = int(sparsity * in_size * out_size)
+  w[:num_ones] = 1
+  np.random.shuffle(w)
+  w *= wmax  # TODO: NOTE: currently ignores min range, all synapses start with same strength
+  w = w.reshape(in_size, out_size)
   return w
 
 
@@ -114,9 +117,6 @@ def run(parameters: dict):
   SAVE_FILE = parameters['save_file']
   LOAD_FROM_FILE = parameters['load_from_file']
   MAZE_SIZE = parameters['maze_size']
-  # NUM_CELLS = parameters['num_cells']
-  # X_OFFSETS = parameters['x_offsets']
-  # Y_OFFSETS = parameters['y_offsets']
   SCALES = parameters['scales']
   ROTATIONS = parameters['rotations']
   NUM_MODULES = parameters['num_modules']
@@ -144,6 +144,10 @@ def run(parameters: dict):
     # gc_m = GC_Module(NUM_CELLS, X_OFFSETS, Y_OFFSETS, ROTATIONS, SCALES, SHARPNESSES)
     gc_pop = GC_Population(NUM_MODULES, OFFSETS_PER_MODULE, GLOBAL_SCALE, SCALES, ROTATIONS, SHARPNESSES)
     gc_activity = grid_cell_activity_generator(MAZE_SIZE, gc_pop)
+    # fig = plt.figure(figsize=(10, 10))
+    # ax = plt.gca()
+    # gc_pop.plot_peaks([0, 10], [0, 10], fig=fig, ax=ax)
+    # plt.savefig('grid_cell_peaks.png', dpi=200)
 
     ## Convert Grid Cell activity to spike trains ##
     gc_spike_trains = spike_train_generator(gc_activity, sim_time=1000, max_firing_rates=gc_pop.max_firing_rates)
@@ -185,17 +189,17 @@ def run(parameters: dict):
       for i in range(MAZE_SIZE[0]):
         for j in range(MAZE_SIZE[1]):
           ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j])
-          ax.imshow(gc_spike_trains[i, j], aspect='auto', cmap='binary', interpolation=None)
+          ax.imshow(simplify_spikes(gc_spike_trains[i, j], 5), aspect='auto', cmap='hot', interpolation=None)
           ax.set_xticks([])
           ax.set_yticks([])
       for i in range(MAZE_SIZE[0]):
         for j in range(MAZE_SIZE[1]):
           ax = fig.add_subplot(gs[MAZE_SIZE[0]+i+1, j+MAZE_SIZE[1]+1])
-          ax.imshow(res_spike_trains[i, j].T, aspect='auto', cmap='binary', interpolation=None)
+          ax.imshow(simplify_spikes(res_spike_trains[i, j].T, 5), aspect='auto', cmap='hot', interpolation=None)
           ax.set_xticks([])
           ax.set_yticks([])
 
-      plt.savefig("spike_trains.png", dpi=1000)
+      plt.savefig("spike_trains_grid.png", dpi=200)
       plt.show()
 
     ## Analyze GC activity ##
@@ -212,11 +216,10 @@ def run(parameters: dict):
         # Find overlaps in relevant neurons
         for neuron in top_neurons:
           used_neurons[neuron].append((i, j))
-    # for neuron, positions in used_neurons.items():
-    #   print(f"Neuron {neuron} is relevant in positions {positions}")
 
     # Check if any two positions share 2 or more relevant neurons
     rel_list = list(rel_neurons.items())
+    overlap_matrix = np.zeros((len(rel_list), len(rel_list)))
     for i in range(len(rel_list)):
       for j in range(i+1, len(rel_list)):
         pos1, data1 = rel_list[i]
@@ -225,6 +228,16 @@ def run(parameters: dict):
           overlap = set(data1[0]) & set(data2[0])
           if len(overlap) >= 2:
             print(f"Positions {pos1} and {pos2} share {overlap} Grid Cells.")
+            overlap_matrix[i, j] = len(overlap)
+
+    # Plot overlap matrix
+    plt.clf()
+    im = plt.imshow(overlap_matrix, cmap='hot', interpolation='nearest')
+    plt.colorbar(im)
+    plt.title("Overlap Matrix (GC)")
+    plt.xlabel("Position 1")
+    plt.ylabel("Position 2")
+    plt.savefig("overlap_matrix_gc.png", dpi=500)
 
     ## Analyze Reservoir activity ##
     print("\n#####################")
@@ -241,11 +254,10 @@ def run(parameters: dict):
         # Find overlaps in relevant neurons
         for neuron in top_neurons:
           used_neurons[neuron].append((i, j))
-    # for neuron, positions in used_neurons.items():
-    #   print(f"Neuron {neuron} is relevant in positions {positions}")
 
     # Check if any two positions share 2 or more relevant neurons
     rel_list = list(rel_neurons.items())
+    overlap_matrix = np.zeros((len(rel_list), len(rel_list)))
     for i in range(len(rel_list)):
       for j in range(i + 1, len(rel_list)):
         pos1, data1 = rel_list[i]
@@ -254,24 +266,86 @@ def run(parameters: dict):
           overlap = set(data1[0]) & set(data2[0])
           if len(overlap) >= 2:
             print(f"Positions {pos1} and {pos2} share {overlap} neurons.")
+            overlap_matrix[i, j] = len(overlap)
+
+    # Plot overlap matrix
+    plt.clf()
+    im = plt.imshow(overlap_matrix, cmap='hot', interpolation='nearest')
+    plt.colorbar(im)
+    plt.title("Overlap Matrix (Res)")
+    plt.xlabel("Position 1")
+    plt.ylabel("Position 2")
+    plt.savefig("overlap_matrix_res.png", dpi=500)
 
     if SAVE_FILE:
       with open(f"saves/{SAVE_FILE}", "wb") as f:
         pkl.dump(res_spike_trains, f)
 
+      with open(f"saves/grid_spikes.pkl", "wb") as f:
+        pkl.dump(gc_spike_trains, f)
+
+    exit()
+
   else:
     with open(f"saves/{LOAD_FROM_FILE}", "rb") as f:
       res_spike_trains = pkl.load(f)
 
+    with open(f"saves/grid_spikes.pkl", "rb") as f:
+      gc_spike_trains = pkl.load(f)
+
+  # fig = plt.figure(figsize=(10, 10))
+  # gs = fig.add_gridspec(MAZE_SIZE[0], MAZE_SIZE[1])
+  # # gc_pop.plot_peaks([-1, MAZE_SIZE[0]], [-1, MAZE_SIZE[1]], fig=fig, ax=fp_ax, )  # contours=True, pos=(0, 1))
+  # # fp_ax.grid(True)
+  #
+  # for i in range(MAZE_SIZE[0]):
+  #   for j in range(MAZE_SIZE[1]):
+  #     ax = fig.add_subplot(gs[i, j])
+  #     im = ax.imshow(simplify_spikes(gc_spike_trains[i, j], 5), aspect='auto', cmap='hot', interpolation=None)
+  #     im.set_clim(vmin=0, vmax=2)
+  #     ax.set_xticks([])
+  #     ax.set_yticks([])
+  #
+  # plt.savefig("spike_trains_grid.png", dpi=200)
+  # plt.show()
+  # plt.clf()
+  #
+  # fig = plt.figure(figsize=(10, 10))
+  # gs = fig.add_gridspec(MAZE_SIZE[0], MAZE_SIZE[1])
+  #
+  # for i in range(MAZE_SIZE[0]):
+  #   for j in range(MAZE_SIZE[1]):
+  #     ax = fig.add_subplot(gs[i, j])
+  #     im = ax.imshow(simplify_spikes(res_spike_trains[i, j].T, 5)*5, aspect='auto', cmap='hot', interpolation=None)
+  #     im.set_clim(vmin=0, vmax=2)
+  #     ax.set_xticks([])
+  #     ax.set_yticks([])
+  #
+  # plt.savefig("spike_trains_res.png", dpi=200)
+  # plt.show()
+  #
+  # exit()
+
   ## Perform Q-Learning ##
-  exit()
-  w_exc_out = generate_res_out_weights(EXC_SIZE + INH_SIZE, OUT_SIZE, 10)    # TODO: Temporary manual weight generation
+
+  # # Plot Reservoir Activity relative to position
+  # fig = plt.figure(figsize=(10, 5))
+  # res_activity = res_spike_trains[4, 2]
+  # plt.bar(np.arange(EXC_SIZE + INH_SIZE), res_activity.sum(0).numpy())
+  # plt.title("Reservoir Activity at Position (4, 2) over 1000ms")
+  # plt.xlabel("Neuron Index")
+  # plt.ylabel("Spike Count")
+  # plt.savefig("res_activity_position_4_2.png", dpi=500)
+  # exit()
+
+  w_exc_out = generate_res_out_weights(EXC_SIZE + INH_SIZE, OUT_SIZE, SPARSITIES['exc_out'], RANGES['exc_out'])    # TODO: Temporary manual weight generation
   w_out_out = np.zeros((OUT_SIZE, OUT_SIZE))
   model = STDP_Q_Learning(
     in_size=EXC_SIZE+INH_SIZE,
     out_size=OUT_SIZE,
     w_exc_out=w_exc_out,
     w_out_out=w_out_out,
+    exploration=1,
     alpha=ALPHA,
     gamma=GAMMA,
     num_actions=4,
@@ -291,65 +365,125 @@ def run(parameters: dict):
   )
 
   if ANIMATE_TRAINING:
-    fig = plt.figure(figsize=(5, 5))
-    gs = gridspec.GridSpec(2, 3)
-    maze_ax = fig.add_subplot(gs[0:2, -2:])
+    fig = plt.figure(figsize=(10, 5))
+    gs = gridspec.GridSpec(3, 3)
+    maze_ax = fig.add_subplot(gs[0:3, -2:])
     weights_ax = fig.add_subplot(gs[0, 0])
-    spikes_ax = fig.add_subplot(gs[1, 0])
+    res_spikes_ax = fig.add_subplot(gs[1, 0])
+    motor_spikes_ax = fig.add_subplot(gs[2, 0])
 
-  def run_episode(animate=False):
+  def run_episode(animate=False, warmup=False, eps=1.0, decay=0.99):
     # state: spike trains of shape (exc+inh, time)
     state, coords, _ = env.reset()
     history = []
     for t in count():
-      if animate:
+      if animate and t > 0:
+        # Evaluate agents neural behavior in all positions of environment
+        state_behavior = None
+        save_plot = False
+        # if t % 100 == 0 and t != 0:
+        #   state_behavior = np.zeros((MAZE_SIZE[0], MAZE_SIZE[1], 4), dtype=int)
+        #   save_plot = True
+        #   for i in range(MAZE_SIZE[0]):
+        #     for j in range(MAZE_SIZE[1]):
+        #       cell = env.maze[i, j]
+        #       state = env.state_to_grid_cell_spikes(cell)
+        #       o_s = model.simulate_state(state, SIM_TIME)
+        #       summed_spikes = o_s.reshape(1000, 4, model.motor_pop_size).sum(2).sum(0)
+        #       state_behavior[i, j] = summed_spikes / model.motor_pop_size
         maze_ax.clear()
         weights_ax.clear()
-        spikes_ax.clear()
+        res_spikes_ax.clear()
+        motor_spikes_ax.clear()
         model.plot_weights(ax=weights_ax)
-        model.plot_spikes(ax=spikes_ax, spikes=state)
-        env.plot(coords, q_table=model.q_table, ax=maze_ax)
+        model.plot_spikes(ax=res_spikes_ax, spikes=state, title="Reservoir Spikes")
+        model.plot_spikes(ax=motor_spikes_ax, spikes=out_spikes, title="Motor Spikes")
+        env.plot(coords, q_table=model.q_table, ax=maze_ax, state_behavior=state_behavior)
         plt.tight_layout()
         plt.pause(0.00001)
-      action, out_spikes = model.select_action(state, SIM_TIME)
+        if save_plot:
+          fig.savefig(f"plots/maze_{t}.png", dpi=300)
+          plt.close()
+
+      explore = eps > np.random.rand()  # Epsilon-greedy exploration
+      if not warmup:
+        action, out_spikes = model.select_action(state, SIM_TIME, explore)
+      else:
+        if explore:   # Manually select max action during warmup
+          action = np.random.randint(model.num_actions)
+        else:
+          action = np.argmax(model.q_table[coords]) if coords in model.q_table else np.random.randint(model.num_actions)
+
       new_state, reward, terminated, new_coords = env.step(action)
-
-      # ## TODO: Spaghetti code!
-      # if len(history) > 5:
-      #   avg_reward = np.mean([h[2] for h in history[-5:]])
-      #   modular_learning_rate = 0.1 * (((avg_reward - 1)**2) / 4)
-      #   model.lr = modular_learning_rate
-      # ## TODO: Spaghetti code!
-
       delta_Q = model.Q_Learning(coords, action, reward, new_coords)   # Alternatively with new_state rather than coords
-      # delta_Q = model.Q_Learning(new_state, action, reward, new_state)
-      model.STDP_RL(reward, state, out_spikes)
-      model.reset_state_variables()
-      history.append((state, action, reward, new_state, delta_Q))
-      print(f"Step {t+1}/{MAX_STEPS} - Reward: {reward:.2f}")
+
+      if not warmup:
+        model.STDP_RL(np.sign(delta_Q), state, out_spikes, action)
+        # model.STDP_RL(reward, state, out_spikes, action)
+        model.reset_state_variables()
+
+      eps *= decay  # Decay epsilon for exploration
+
+      history.append((coords, action, reward, new_coords, delta_Q))
+      print(f"Step {t+1}/{MAX_STEPS} - Reward: {reward:.2f} - Delta-Q {np.sign(delta_Q)} - exploring?: {explore} - Epsilon: {eps:.3f}")
       if terminated or t >= MAX_STEPS:
+        print(f"Episode finished after {t} timesteps")
         break
       state = new_state
       coords = new_coords
-    return history
+    return history, eps
 
-  # Train model
+  ### Train model ###
   universal_history = []
+  ep_lengths = []
+
+  # Q-Table warmup phase
+  print("Warming up Q-Table")
+  for episode in range(500):
+    history, eps = run_episode(False, warmup=True, eps=1.0, decay=0.999)
+    ep_lengths.append(len(history))
+    universal_history.append(history)
+    # ep_lengths.append(len(history))
+    # print(f"Episode {episode+1}/100 - Steps: {len(history)}")
+    # universal_history.append(history)
+
+  # Plot Place Cell Activity
+  # plt.clf()
+  # spike_history = np.array([h[0].numpy() for eps in universal_history for h in eps])
+  # spike_history = spike_history.sum(1)    # Sum over sim time dimension
+  # plt.figure(figsize=(10, 5))
+  # plt.plot(np.arange(2000), spike_history[0:2000, 131])
+  # plt.title("Reservoir Cell 131")
+  # plt.ylim(0, 13)
+  # plt.xlabel("Time (s)")
+  # plt.ylabel("Spike Frequency (hz)")
+  # plt.savefig("reservoir_cell_activity.png", dpi=200)
+  # exit()
+
+  print("Training model")
+  epsilon = 0.1
   for episode in range(NUM_EPISODES):
-    history = run_episode(ANIMATE_TRAINING)
+    history, epsilon = run_episode(ANIMATE_TRAINING, eps=epsilon)
+    ep_lengths.append(len(history))
     print(f"Episode {episode+1}/{NUM_EPISODES} - Steps: {len(history)}")
     universal_history.append(history)
+
+  with open("universal_history_10_10.pkl", "wb") as f:
+    pkl.dump(universal_history, f)
+
+  plt.plot(ep_lengths, label='Training Curve')
+
 
 
 if __name__ == '__main__':
   primes = np.array([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,])
   np.random.seed(2)
   p = {
-    'plot': True,
+    'plot': False,
     'animate_training': True,
-    'save_file': "1000_res.pkl",
-    'load_from_file': None,
-    'maze_size': (5, 5),
+    'save_file': "5000_res_7_7_maze.pkl",
+    'load_from_file': "5000_res_7_7_maze.pkl",
+    'maze_size': (7, 7),
     'num_modules': 5,
     'offsets_per_module': 3,
     'scales': primes,
@@ -373,12 +507,12 @@ if __name__ == '__main__':
       "inh_tc_theta_decay": 10_000,
       "inh_theta_plus": 0,
       "inh_thresh": -60,
-      "refrac_out": 1,
+      "refrac_out": 0,
       "reset_out": -64,  # Base
-      "tc_decay_out": 12,   # AND decay for 20ms interval @ 11mv threshold
+      "tc_decay_out": 20,   # AND decay for 20ms interval @ 11mv threshold
       "tc_theta_decay_out": 10_000,
       "theta_plus_out": 0,
-      "thresh_out": -53,  # 11mv threshold
+      "thresh_out": -49,
     },
     'ranges': {
       'in_exc': (0, 6.5),
@@ -387,7 +521,7 @@ if __name__ == '__main__':
       'exc_inh': (0, 1),
       'inh_exc': (-1, 0),
       'inh_inh': (-1, 0),
-      'exc_out': (0, 5),   # NOTE: Currently ignored
+      'exc_out': (0, 1),
       'out_out': (-1, -1),
 
     },
@@ -398,16 +532,16 @@ if __name__ == '__main__':
       'exc_inh': 0.0,
       'inh_exc': 0.0,
       'inh_inh': 0.0,
-      'exc_out': 0.1,
+      'exc_out': 0.2,
       'out_out': 0.0,
     },
-    'alpha': 0.1,   # Q-Table learning rate
-    'gamma': 0.9,   # Q-Table discount factor (how much future rewards are discounted)
+    'alpha': 0.01,   # Q-Table learning rate
+    'gamma': 0.99,   # Q-Table discount factor (how much future rewards are discounted)
     'decay': 0.5,   # Synaptic decay (UNUSED)
-    'lr': 0.1,      # Weight update learning rate
-    'trace_length': 11,
-    'env_path': 'env.pkl',
+    'lr': 0.01,      # Weight update learning rate
+    'trace_length': 0,
+    'env_path': 'maze_7_7.pkl',
     'max_steps': 1000,
-    'episodes': 100,
+    'episodes': 10,
   }
   run(p)
