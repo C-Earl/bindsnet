@@ -1,7 +1,5 @@
 import torch
-
 from bindsnet.network.network import GUINetwork
-
 from bindsnet.rendering.widgets import AbstractWidget
 
 import time as time_lib
@@ -56,6 +54,7 @@ class Application():
     def add_widget(self, widget: AbstractWidget):
       self.widgets.append(widget)
       widget.set_window(self.window)
+      widget.prime(self.network)
 
     def run(self, inputs: dict[str, torch.Tensor], time):
       # Effective number of timesteps.

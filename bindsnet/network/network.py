@@ -525,6 +525,7 @@ class GUINetwork(Network):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+        # TODO: Are VAOs needed?
         # OpenGL array objects for plotting
         # {
         #   'layers': {
@@ -533,8 +534,9 @@ class GUINetwork(Network):
         #           ...
         #    },
         #    ...
-        self.opengl_vaos = {'connections': {}, 'layers': {}}
-        self.opengl_vao_dtypes = {}
+        # self.opengl_vaos = {'connections': {}, 'layers': {}}
+        # self.opengl_vao_dtypes = {}
+        self.opengl_vbos = {'connections': {}, 'layers': {}}
 
     def migrate(self) -> None:
         ### Migrate all layers and connections to shared buffers ###
@@ -554,12 +556,13 @@ class GUINetwork(Network):
             raise NotImplementedError("GUINetwork only supports Input and LIFNodes layers for now.")
 
         ### Create shared buffers ###
-        self.opengl_vaos['layers'][name] = {}
+        self.opengl_vbos['layers'][name] = {}
         for data_name, data in layer_data.items():
-            shared_buffer, vao = self._create_shared_buffer(data)           # Generate buffer
+            shared_buffer, vbo = self._create_shared_buffer(data)           # Generate buffer
             layer.__setattr__(data_name, shared_buffer)                     # Replace original tensor with shared buffer
-            self.opengl_vaos['layers'][name][data_name] = vao            # Map VBO to layer attribute
-            self.opengl_vao_dtypes[vao] = pytorch_opengl_type_map[data.dtype]    # Store OpenGL type for this buffer
+            self.opengl_vbos['layers'][name][data_name] = vbo
+            # self.opengl_vaos['layers'][name][data_name] = vao            # Map VBO to layer attribute
+            # self.opengl_vao_dtypes[vao] = pytorch_opengl_type_map[data.dtype]    # Store OpenGL type for this buffer
 
     def _create_shared_buffer(self, org_tensor: torch.Tensor) -> tuple[Tensor, int]:
         # language=rst

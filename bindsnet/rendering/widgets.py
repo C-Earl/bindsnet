@@ -4,6 +4,9 @@ import OpenGL.GL as gl
 from OpenGL.GL.shaders import compileShader, compileProgram
 import numpy as np
 
+from bindsnet.network.network import GUINetwork
+
+
 class AbstractWidget:
   def __init__(self, width: float, height: float, x:float, y:float):
     self.width = width
@@ -114,14 +117,14 @@ class RasterPlotWidget(AbstractWidget):
       height: float,
       x:float,
       y:float,
-      vao: int,
-      layer_size: int,
+      layer_name: int,
     ):
     super().__init__(width, height, x, y)
-    self.vao = vao
-    self.layer_size = layer_size
+    self.layer_name = layer_name
     self.max_time_steps = width
-    self.window = None  # Will be defined when widget added to Application
+    self.window = None        # Assigned when App.add_widget() called
+    self.spikes_vbo = None    # Assigned when App.add_widget() called
+    self.layer_size = None    # Assigned when App.add_widget() called
 
     ### Define shaders ###
     raster_texture_vertex_shader = """
@@ -169,33 +172,6 @@ class RasterPlotWidget(AbstractWidget):
       compileShader(raster_texture_fragment_shader, gl.GL_FRAGMENT_SHADER)
     )
 
-    ### Define texture for rolling spike buffer ###
-    self.raster_texture = gl.glGenTextures(1)
-    gl.glBindTexture(gl.GL_TEXTURE_2D, self.raster_texture)
-    gl.glTexImage2D(
-      gl.GL_TEXTURE_2D,
-      0,          # Mipmap level
-      gl.GL_R8,   # Internal format (32-bit float)  TODO: Can this be bool?
-      self.max_time_steps,  # Width of texture (time steps)
-      layer_size,   # Height of texture (neurons)
-      0,            # Border
-      gl.GL_RED,    # Format of pixel data
-      gl.GL_UNSIGNED_BYTE,  # Data type of pixel data
-      np.zeros(
-        (layer_size, self.max_time_steps),
-        dtype=np.uint8
-      )         # No initial data
-    )
-    gl.glTexParameteri(
-      gl.GL_TEXTURE_2D,
-      gl.GL_TEXTURE_MIN_FILTER,
-      gl.GL_NEAREST
-    )
-    gl.glPixelStorei(
-      gl.GL_UNPACK_ALIGNMENT,
-      1
-    )
-
     ### Vertex indices buffer (square covering widget) ###
     quad_vertices = np.array([
       -1.0, -1.0,
@@ -226,6 +202,37 @@ class RasterPlotWidget(AbstractWidget):
     )
     gl.glEnableVertexAttribArray(0)
     gl.glBindVertexArray(0)
+
+  def prime(self, network: GUINetwork):
+    self.layer_size = network.layers[self.layer_name].n
+    self.spikes_vbo = network.opengl_vbos['layers'][self.layer_name]['s']
+
+    ### Define texture for rolling spike buffer ###
+    self.raster_texture = gl.glGenTextures(1)
+    gl.glBindTexture(gl.GL_TEXTURE_2D, self.raster_texture)
+    gl.glTexImage2D(
+      gl.GL_TEXTURE_2D,
+      0,  # Mipmap level
+      gl.GL_R8,  # Internal format (32-bit float)  TODO: Can this be bool?
+      self.max_time_steps,  # Width of texture (time steps)
+      self.layer_size,  # Height of texture (neurons)
+      0,  # Border
+      gl.GL_RED,  # Format of pixel data
+      gl.GL_UNSIGNED_BYTE,  # Data type of pixel data
+      np.zeros(
+        (self.layer_size, self.max_time_steps),
+        dtype=np.uint8
+      )  # No initial data
+    )
+    gl.glTexParameteri(
+      gl.GL_TEXTURE_2D,
+      gl.GL_TEXTURE_MIN_FILTER,
+      gl.GL_NEAREST
+    )
+    gl.glPixelStorei(
+      gl.GL_UNPACK_ALIGNMENT,
+      1
+    )
 
   def render_ticks(self):
     ...

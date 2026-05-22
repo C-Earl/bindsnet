@@ -28,12 +28,11 @@ app = Application(network, 1400, 900)
 inputs = {"I" : torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
   RasterPlotWidget(
-    width=400,
-    height=300,
+    width=1000,
+    height=500,
     x=50,
     y=50,
-    vao=network.opengl_vaos['layers']['EXC_LIF']['s'],      # TODO: Clean this up
-    layer_size=EXC_SIZE
+    layer_name="EXC_LIF"
   )
 )
 app.run(inputs=inputs, time=SIM_TIME)
