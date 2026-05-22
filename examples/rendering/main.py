@@ -3,14 +3,14 @@ from bindsnet.rendering.widgets import RasterPlotWidget
 from model import create_model
 import torch
 
-SIM_TIME = 500
+SIM_TIME = 1000
 BATCH_SIZE = 1
 DEVICE = "cuda:0"
 
 IN_SIZE = 100
 EXC_SIZE = 10_000
 INH_SIZE = 1_500
-I_TO_EXC_CONNECTIVITY = 0.05
+I_TO_EXC_CONNECTIVITY = 0.15
 I_TO_INH_CONNECTIVITY = 0.05
 INH_TO_EXC_CONNECTIVITY = 0.05
 EXC_TO_INH_CONNECTIVITY = 0.05
@@ -28,8 +28,8 @@ app = Application(network, 1400, 900)
 inputs = {"I" : torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
   RasterPlotWidget(
-    width=1000,
-    height=500,
+    width=700,
+    height=450,
     x=50,
     y=50,
     layer_name="EXC_LIF"

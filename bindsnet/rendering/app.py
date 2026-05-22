@@ -35,7 +35,7 @@ class Application():
       glfw.make_context_current(self.window)
 
       # Disable VSync, we'll handle frame timing manually
-      # glfw.swap_interval(0)
+      glfw.swap_interval(0)
 
       # Blending for transparent drawing
       gl.glEnable(gl.GL_BLEND)
@@ -74,6 +74,7 @@ class Application():
         # Update widget renders
         for widget in self.widgets:
           # widget.update(dt)
+          widget.render_widget_border()
           widget.render(t)
 
         # Swap front/back buffer to reveal new frame

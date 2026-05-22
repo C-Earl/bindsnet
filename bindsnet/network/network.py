@@ -507,7 +507,7 @@ pytorch_cp_type_map = {
     torch.int32: cp.int32,
     torch.int64: cp.int64,
     torch.uint8: cp.uint8,
-    torch.bool: cp.bool_,
+    torch.bool: cp.bool,
 }
 pytorch_opengl_type_map = {
     torch.float32: gl.GL_FLOAT,

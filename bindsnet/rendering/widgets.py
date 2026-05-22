@@ -9,63 +9,34 @@ from bindsnet.network.network import GUINetwork
 
 class AbstractWidget:
   def __init__(self, width: float, height: float, x:float, y:float):
-    self.width = width
-    self.height = height
-    self.x = x
-    self.y = y
-    self.border_inset = 0.05    # % padding from edges of widget to border
-    self.drawable_width = 2.0 - 2*self.border_inset   # OpenGL coordinates are normalized to [-1.0, 1.0], `
-    self.drawable_height = 2.0 - 2*self.border_inset  # so drawable area is 2.0 minus border insets on both sides
+    self.width = width      # Widget width
+    self.height = height    # Widget height
+    self.x = x              # Bottom-left x coordinate
+    self.y = y              # Bottom-right y coordinate
+    border_inset = min(width*0.05, height*0.05)   # padding from edges of widget to border
+    self.drawable_width = int(self.width - 2*border_inset)
+    self.drawable_height = int(self.height - 2*border_inset)
+    self.drawable_x = int(self.x + border_inset)
+    self.drawable_y = int(self.y + border_inset)
 
-    self.border_vao = self.create_border_geometry()
-    self.line_shader = self.create_line_shader()
-
-  def set_window(self, app_window: glfw._GLFWwindow):
-    self.window = app_window
-
-  def create_line_shader(self):
-    vertex_shader = """
-    #version 330 core
-    layout(location = 0) in vec2 pos;
-    void main()
-    {
-        gl_Position = vec4(pos, 0.0, 1.0);
-    }
-    """
-
-    fragment_shader = """
-    #version 330 core
-    out vec4 FragColor;
-    void main()
-    {
-        FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-    }
-    """
-
-    return compileProgram(
-      compileShader(vertex_shader, gl.GL_VERTEX_SHADER),
-      compileShader(fragment_shader, gl.GL_FRAGMENT_SHADER)
-    )
-
-  def create_border_geometry(self):
-    ### Coordinates slightly inset from border ###
+    ### Widget border rendering ###
     vertices = np.array([
-      -1+self.border_inset, -1+self.border_inset,
-      1-self.border_inset, -1+self.border_inset,
-      1-self.border_inset, 1-self.border_inset,
-      -1+self.border_inset, 1-self.border_inset,
+      -0.99, -0.99,
+      0.99, -0.99,
+      0.99, 0.99,
+      -0.99, 0.99,
     ], dtype=np.float32)
 
     ### Generate VAO for border geometry ###
-    vao = gl.glGenVertexArrays(1)
+    self.widget_border_vao = gl.glGenVertexArrays(1)
     vbo = gl.glGenBuffers(1)
-    gl.glBindVertexArray(vao)
+    gl.glBindVertexArray(self.widget_border_vao)
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo)
     gl.glBufferData(
-      gl.GL_ARRAY_BUFFER, # Target buffer
-      vertices.nbytes,    # Size of data in bytes
-      vertices,           # Data
-      gl.GL_STATIC_DRAW   # Type of drawing (static data, not changing frequently)
+      gl.GL_ARRAY_BUFFER,   # Target buffer
+      vertices.nbytes,      # Size of data in bytes
+      vertices,             # Data
+      gl.GL_STATIC_DRAW     # Type of drawing (static data, not changing frequently)
     )
     gl.glVertexAttribPointer(
       0,            # VAO slot
@@ -77,29 +48,40 @@ class AbstractWidget:
     )
     gl.glEnableVertexAttribArray(0)
     gl.glBindVertexArray(0)
-
-    return vao
-
-  def render_border(self):
-    gl.glViewport(
-      self.x,
-      self.y,
-      self.width,
-      self.height
+    widget_border_vertex_shader = """
+      #version 330 core
+      layout(location = 0) in vec2 pos;
+      void main()
+      {
+          gl_Position = vec4(pos, 0.0, 1.0);
+      }
+    """
+    widget_border_fragment_shader = """
+      #version 330 core
+      out vec4 FragColor;
+      void main()
+      {
+          FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+      }
+    """
+    self.border_line_shader = compileProgram(
+      compileShader(widget_border_vertex_shader, gl.GL_VERTEX_SHADER),
+      compileShader(widget_border_fragment_shader, gl.GL_FRAGMENT_SHADER)
     )
-    gl.glUseProgram(self.line_shader)
-    gl.glBindVertexArray(self.border_vao)
+
+  def set_window(self, app_window: glfw._GLFWwindow):
+    self.window = app_window
+
+  def render_widget_border(self):
+    gl.glViewport(self.x, self.y, self.width, self.height)
+    gl.glUseProgram(self.border_line_shader)
+    gl.glBindVertexArray(self.widget_border_vao)
     gl.glDrawArrays(gl.GL_LINE_LOOP, 0, 4)
     gl.glBindVertexArray(0)
 
   def render(self, time_step: int):
     # Set size of area we are rendering into
-    gl.glViewport(
-      self.x,
-      self.y,
-      self.width,
-      self.height
-    )
+    gl.glViewport(self.drawable_x, self.drawable_y, self.drawable_width, self.drawable_height)
 
 class RasterPlotWidget(AbstractWidget):
   # language=rst
@@ -118,6 +100,7 @@ class RasterPlotWidget(AbstractWidget):
       x:float,
       y:float,
       layer_name: int,
+      tick_spacing: int=20,
     ):
     super().__init__(width, height, x, y)
     self.layer_name = layer_name
@@ -125,6 +108,8 @@ class RasterPlotWidget(AbstractWidget):
     self.window = None        # Assigned when App.add_widget() called
     self.spikes_vbo = None    # Assigned when App.add_widget() called
     self.layer_size = None    # Assigned when App.add_widget() called
+    self.tick_spacing = tick_spacing
+    self.layer = None
 
     ### Define shaders ###
     raster_texture_vertex_shader = """
@@ -163,7 +148,7 @@ class RasterPlotWidget(AbstractWidget):
                     texel_coord,
                     0
                 ).r;
-            vec3 color = vec3(spike);
+            vec3 color = vec3(spike*255);
             FragColor = vec4(color, 1.0);
         }
     """
@@ -187,18 +172,18 @@ class RasterPlotWidget(AbstractWidget):
     gl.glBindVertexArray(self.quad_vao)
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, quad_vbo)
     gl.glBufferData(
-      gl.GL_ARRAY_BUFFER,  # Target buffer
-      quad_vertices.nbytes,  # Size of data in bytes
-      quad_vertices,  # Data
-      gl.GL_STATIC_DRAW  # Type of drawing (static data, not changing)
+      gl.GL_ARRAY_BUFFER,     # Target buffer
+      quad_vertices.nbytes,   # Size of data in bytes
+      quad_vertices,          # Data
+      gl.GL_STATIC_DRAW       # Type of drawing (static data, not changing)
     )
     gl.glVertexAttribPointer(
-      0,  # VAO slot
-      2,  # x,y
+      0,            # VAO slot
+      2,            # x,y
       gl.GL_FLOAT,  # Data type
-      False,  # Normalized?
-      0,  # Stride
-      None  # Offset in buffer
+      False,        # Normalized?
+      0,            # Stride
+      None          # Offset in buffer
     )
     gl.glEnableVertexAttribArray(0)
     gl.glBindVertexArray(0)
@@ -212,12 +197,12 @@ class RasterPlotWidget(AbstractWidget):
     gl.glBindTexture(gl.GL_TEXTURE_2D, self.raster_texture)
     gl.glTexImage2D(
       gl.GL_TEXTURE_2D,
-      0,  # Mipmap level
-      gl.GL_R8,  # Internal format (32-bit float)  TODO: Can this be bool?
+      0,                    # Mipmap level
+      gl.GL_R8,             # Internal format (32-bit float)
       self.max_time_steps,  # Width of texture (time steps)
-      self.layer_size,  # Height of texture (neurons)
-      0,  # Border
-      gl.GL_RED,  # Format of pixel data
+      self.layer_size,      # Height of texture (neurons)
+      0,                    # Border
+      gl.GL_RED,            # Format of pixel data
       gl.GL_UNSIGNED_BYTE,  # Data type of pixel data
       np.zeros(
         (self.layer_size, self.max_time_steps),
@@ -234,14 +219,19 @@ class RasterPlotWidget(AbstractWidget):
       1
     )
 
+    self.layer = network.layers[self.layer_name]
+
   def render_ticks(self):
     ...
 
   def render_spikes(self, time_step: int):
     wrapped_t = time_step % self.max_time_steps
-    spikes = (np.random.random(self.layer_size) > 0.95) * 255
 
     ### Migrate spike data to GPU ###
+    gl.glBindBuffer(
+      gl.GL_PIXEL_UNPACK_BUFFER,
+      self.spikes_vbo
+    )
     gl.glBindTexture(gl.GL_TEXTURE_2D,
                      self.raster_texture)
     gl.glTexSubImage2D(
@@ -253,7 +243,7 @@ class RasterPlotWidget(AbstractWidget):
       self.layer_size,  # height
       gl.GL_RED,
       gl.GL_UNSIGNED_BYTE,
-      spikes
+      None
     )
 
     ### Plot ###
@@ -285,6 +275,5 @@ class RasterPlotWidget(AbstractWidget):
   def render(self, time_step: int):
     super().render(time_step)
     # self.render_background()
-    self.render_border()
     # self.render_ticks()
     self.render_spikes(time_step)
