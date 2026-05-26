@@ -1,5 +1,5 @@
 from bindsnet.rendering.app import Application
-from bindsnet.rendering.widgets import RasterPlotWidget
+from bindsnet.rendering.widgets import RasterPlot
 from model import create_model
 import torch
 
@@ -27,12 +27,15 @@ network = create_model(
 app = Application(network, 1400, 900)
 inputs = {"I" : torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
-  RasterPlotWidget(
+  RasterPlot(
     width=700,
     height=450,
     x=50,
     y=50,
-    layer_name="EXC_LIF"
-  )
+    layer_name="EXC_LIF",
+    max_timesteps=200,
+  ),
+  row=0,
+  col=0,
 )
 app.run(inputs=inputs, time=SIM_TIME)
