@@ -24,7 +24,7 @@ network = create_model(
   INH_TO_EXC_CONNECTIVITY,
   EXC_TO_INH_CONNECTIVITY,
 )
-app = Application(network, 1400, 900)
+app = Application(network, 1400, 900, step_rate=500)
 inputs = {"I" : torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
   RasterPlot(
@@ -33,9 +33,9 @@ app.add_widget(
     x=50,
     y=50,
     layer_name="EXC_LIF",
-    max_timesteps=200,
+    max_timesteps=500,
   ),
   row=0,
   col=0,
 )
-app.run(inputs=inputs, time=SIM_TIME)
+app.run(inputs=inputs, runtime=SIM_TIME)

@@ -5,14 +5,19 @@ from bindsnet.network.network import GUINetwork
 
 
 class Application():
-  def __init__(self, network: GUINetwork, width=1400, height=900, title="BindsNET GUI"):
+  def __init__(self, network: GUINetwork, width=1400, height=900, title="BindsNET GUI",
+               step_rate: int=500):
     self.width, self.height = width, height
     self.network = network
     self.widgets = []
-    self.inputs = None    # Set when run() is called
-    self.current_time = 0
+    self.inputs = None      # Set when run() is called; Inputs into network during runtime
+    self.runtime = None     # Set when run() is called; Total runtime of network simulation
+    self.current_time = 0   # Current timestep in network; incremented during runtime
+    self.step_rate = step_rate  # Rate in hz to step network and update renders
 
+    # Initialize VisPy canvas and grid layout for widget rendering
     self.canvas = scene.SceneCanvas(
+      title=title,
       keys='interactive',
       bgcolor='black',
       size=(self.width, self.height),
@@ -22,14 +27,15 @@ class Application():
 
   def add_widget(self, widget: AbstractWidget, row: int, col: int):
     self.widgets.append(widget)
-    widget.prime(self.network)
+    widget.prime(self.network)    # Needed to initialize network-dependent widget variables
     self.grid.add_widget(widget.view, row, col)
 
-  def prime_widgets(self):
-    for widget in self.widgets:
-      widget.prime()
-
   def step(self, event):
+    # Check if runtime is over
+    if self.current_time >= self.runtime:
+      self.timer.stop()
+      return
+
     # Simulate one timestep in network
     tstep_inputs = {layer_name: layer_inputs[self.current_time] for layer_name, layer_inputs in self.inputs.items()}
     self.network.step(tstep_inputs)
@@ -41,7 +47,8 @@ class Application():
     # Increment time
     self.current_time += 1
 
-  def run(self, inputs: dict[str, torch.Tensor], time):
+  def run(self, inputs: dict[str, torch.Tensor], runtime: int):
     self.inputs = inputs
-    self.timer = app.Timer(interval=0.00016, connect=self.step, start=True)
+    self.runtime = runtime
+    self.timer = app.Timer(interval=1/self.step_rate, connect=self.step, start=True)
     app.run()
