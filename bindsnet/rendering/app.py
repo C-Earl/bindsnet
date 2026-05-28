@@ -6,14 +6,15 @@ from bindsnet.network.network import GUINetwork
 
 class Application():
   def __init__(self, network: GUINetwork, width=1400, height=900, title="BindsNET GUI",
-               step_rate: int=500):
+               step_rate: int | str = 500):
     self.width, self.height = width, height
     self.network = network
     self.widgets = []
     self.inputs = None      # Set when run() is called; Inputs into network during runtime
     self.runtime = None     # Set when run() is called; Total runtime of network simulation
     self.current_time = 0   # Current timestep in network; incremented during runtime
-    self.step_rate = step_rate  # Rate in hz to step network and update renders
+    self.step_rate = step_rate if type(step_rate) == str \
+      else 1/step_rate # Rate in hz to step network and update renders
 
     # Initialize VisPy canvas and grid layout for widget rendering
     self.canvas = scene.SceneCanvas(
@@ -28,7 +29,7 @@ class Application():
   def add_widget(self, widget: AbstractWidget, row: int, col: int):
     self.widgets.append(widget)
     widget.prime(self.network)    # Needed to initialize network-dependent widget variables
-    self.grid.add_widget(widget.view, row, col)
+    self.grid.add_widget(widget.grid, row, col)
 
   def step(self, event):
     # Check if runtime is over
@@ -50,5 +51,5 @@ class Application():
   def run(self, inputs: dict[str, torch.Tensor], runtime: int):
     self.inputs = inputs
     self.runtime = runtime
-    self.timer = app.Timer(interval=1/self.step_rate, connect=self.step, start=True)
+    self.timer = app.Timer(interval=self.step_rate, connect=self.step, start=True)
     app.run()

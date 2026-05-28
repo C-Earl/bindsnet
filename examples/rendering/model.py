@@ -7,6 +7,7 @@ from bindsnet.network.network import GUINetwork
 import torch
 
 def create_model(
+  device,
   in_size = 100,
   exc_size=10_000,
   inh_size=1_500,
@@ -16,7 +17,6 @@ def create_model(
   exc_to_inh_connectivity=0.05,
 ) -> GUINetwork:
 
-  device = torch.device('cuda:0')
   network = GUINetwork()
   network.add_layer(layer=Input(in_size), name='I')
   network.add_layer(layer=LIFNodes(exc_size), name='EXC_LIF')

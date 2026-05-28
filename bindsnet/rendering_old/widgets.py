@@ -347,8 +347,7 @@ class RasterPlotWidget(AbstractWidget):
       self.drawable_height
     )
 
-
-    ### Migrate spike data to GPU ###
+    ### Migrate spike data to raster_texture ###
     wrapped_t = time_step % self.max_time_steps
     gl.glBindBuffer(
       gl.GL_PIXEL_UNPACK_BUFFER,
