@@ -36,7 +36,7 @@ def assign_labels(
 
     # Sum over time dimension (spike ordering doesn't matter).
     spikes = spikes.sum(1)
-    
+
     for i in range(n_labels):
         # Create mask.
         mask = labels == i
@@ -60,9 +60,9 @@ def assign_labels(
     noise = eps * torch.randn_like(proportions)
 
     # Noise for random tie breaking.
-    eps = 1e-6 # Small enough not to distort real decisions
+    eps = 1e-6  # Small enough not to distort real decisions
     noise = eps * torch.randn_like(proportions)
-    
+
     # Neuron assignments are the labels they fire most for.
     assignments = torch.argmax(proportions + noise, dim=1)
 
@@ -76,7 +76,7 @@ def assign_labels(
         assignments[silent_mask] = torch.randint(
             0, n_labels, (n_silent,), device=spikes.device
         )
-    
+
     return assignments, proportions, rates
 
 
