@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:github.com)",
-      "Bash(python -c \"import bindsnet, torch; print\\('bindsnet', bindsnet.__version__ if hasattr\\(bindsnet,'__version__'\\) else '?'\\); print\\('torch', torch.__version__\\)\")",
-      "Bash(gh pr *)"
-    ]
-  }
-}
