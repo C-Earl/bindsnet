@@ -58,6 +58,10 @@ def assign_labels(
     # Neuron assignments are the labels they fire most for.
     assignments = torch.max(proportions, 1)[1]
 
+    # Neurons that never fired have no class preference; mark them with -1 so
+    # they don't contribute a (biased) vote for class 0 in downstream schemes.
+    assignments[rates.sum(1) == 0] = -1
+
     return assignments, proportions, rates
 
 
