@@ -25,7 +25,8 @@ def assign_labels(
         ``assign_labels()`` call.
     :param alpha: Rate of decay of label assignments.
     :return: Tuple of class assignments, per-class spike proportions, and per-class
-        firing rates.
+        firing rates. Neurons that never fired are assigned ``-1`` (unassigned) so
+        they do not bias predictions toward class ``0``.
     """
 
     n_neurons = spikes.size(2)
@@ -117,7 +118,9 @@ def all_activity(
     :param assignments: A vector of shape ``(n_neurons,)`` of neuron label assignments.
     :param n_labels: The number of target labels in the data.
     :return: Predictions tensor of shape ``(n_samples,)`` resulting from the "all
-        activity" classification scheme.
+        activity" classification scheme. Samples that elicit no activity from any
+        assigned neuron are predicted as ``-1`` (abstain) rather than defaulting to
+        class ``0``.
     """
     n_samples = spikes.size(0)
 
@@ -139,7 +142,12 @@ def all_activity(
             rates[:, i] = torch.sum(spikes[:, indices], 1) / n_assigns
 
     # Predictions are arg-max of layer-wise firing rates.
-    return torch.sort(rates, dim=1, descending=True)[1][:, 0]
+    predictions = torch.sort(rates, dim=1, descending=True)[1][:, 0]
+
+    # Abstain (-1) on samples with no activity, avoiding a biased vote for class 0.
+    predictions[rates.sum(1) == 0] = -1
+
+    return predictions
 
 
 def proportion_weighting(
@@ -160,7 +168,9 @@ def proportion_weighting(
         proportions of neuron spiking activity.
     :param n_labels: The number of target labels in the data.
     :return: Predictions tensor of shape ``(n_samples,)`` resulting from the "proportion
-        weighting" classification scheme.
+        weighting" classification scheme. Samples that elicit no weighted activity from
+        any assigned neuron are predicted as ``-1`` (abstain) rather than defaulting to
+        class ``0``.
     """
     n_samples = spikes.size(0)
 
@@ -185,6 +195,9 @@ def proportion_weighting(
 
     # Predictions are arg-max of layer-wise firing rates.
     predictions = torch.sort(rates, dim=1, descending=True)[1][:, 0]
+
+    # Abstain (-1) on samples with no activity, avoiding a biased vote for class 0.
+    predictions[rates.sum(1) == 0] = -1
 
     return predictions
 
