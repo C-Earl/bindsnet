@@ -1,1 +1,7 @@
-{}
+{
+  "test/network/test_mstdp_florian.py::TestConvKnownBroken::test_conv_mstdpet_learns[<lambda>-in_shape0-out_shape0]": true,
+  "test/network/test_mstdp_florian.py::TestConvKnownBroken::test_conv_mstdpet_learns[<lambda>-in_shape1-out_shape1]": true,
+  "test/network/test_mstdp_florian.py::TestConvKnownBroken::test_conv_mstdpet_learns[<lambda>-in_shape2-out_shape2]": true,
+  "test/network/test_mstdp_florian.py::TestConvKnownBroken::test_mstdp_conv_batch_gt1[<lambda>-in_shape0-out_shape0]": true,
+  "test/network/test_mstdp_florian.py::TestConvKnownBroken::test_mstdp_conv_batch_gt1[<lambda>-in_shape1-out_shape1]": true
+}
