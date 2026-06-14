@@ -59,10 +59,6 @@ def assign_labels(
     eps = 1e-6  # Small enough not to distort real decisions
     noise = eps * torch.randn_like(proportions)
 
-    # Noise for random tie breaking.
-    eps = 1e-6  # Small enough not to distort real decisions
-    noise = eps * torch.randn_like(proportions)
-
     # Neuron assignments are the labels they fire most for.
     assignments = torch.argmax(proportions + noise, dim=1)
 
@@ -71,11 +67,6 @@ def assign_labels(
     # not default to a vote for class 0). Downstream schemes only match
     # ``assignments == i`` for i >= 0, so -1 neurons are excluded.
     assignments[rates.sum(1) == 0] = -1
-
-    if n_silent > 0:
-        assignments[silent_mask] = torch.randint(
-            0, n_labels, (n_silent,), device=spikes.device
-        )
 
     return assignments, proportions, rates
 
