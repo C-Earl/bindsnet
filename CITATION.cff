@@ -2,8 +2,9 @@ cff-version: 1.2.0
 message: "If you use BindsNET, please cite the article below."
 title: "BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python"
 type: software
-version: 0.3.3
+version: 0.3.4
 license: AGPL-3.0-only
+doi: 10.5281/zenodo.20695115
 repository-code: "https://github.com/BindsNET/bindsnet"
 url: "https://bindsnet-docs.readthedocs.io/"
 keywords:
@@ -26,10 +27,13 @@ authors:
     given-names: Hava T.
   - family-names: Kozma
     given-names: Robert
-# identifiers:                      # TODO(WO-03): add once the software DOI is minted on Zenodo
-#   - type: doi
-#     value: 10.5281/zenodo.XXXXXXX
-#     description: Archived software release
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.20695115
+    description: Concept DOI (resolves to the latest archived release)
+  - type: doi
+    value: 10.5281/zenodo.20695116
+    description: Archived software release v0.3.4
 preferred-citation:
   type: article
   title: "BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python"

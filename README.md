@@ -153,6 +153,17 @@ If you use BindsNET in your research, please cite the following [article](https:
 
 ```
 
+### Citing the software
+
+To cite a specific version of the BindsNET software, use the archived release on Zenodo.
+The concept DOI below always resolves to the latest version:
+
+> BindsNET contributors. *BindsNET*. Zenodo. https://doi.org/10.5281/zenodo.20695115
+
+(For the exact release used, cite its version DOI; e.g. v0.3.4 is
+[10.5281/zenodo.20695116](https://doi.org/10.5281/zenodo.20695116).) A machine-readable
+citation is provided in [`CITATION.cff`](CITATION.cff).
+
 ## Contributors
 
 - Hava Siegelmann - Director of BINDS lab at UMass
