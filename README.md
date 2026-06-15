@@ -12,6 +12,7 @@ Check out the [BindsNET examples](https://github.com/BindsNET/bindsnet/tree/mast
 [![CodeQL](https://github.com/BindsNET/bindsnet/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/BindsNET/bindsnet/actions/workflows/github-code-scanning/codeql)
 [![Documentation Status](https://readthedocs.org/projects/bindsnet-docs/badge/?version=latest)](https://bindsnet-docs.readthedocs.io/?badge=latest)
 [![Neuromorphic Computing](https://img.shields.io/badge/Collaboration_Network-Open_Neuromorphic-blue)](https://open-neuromorphic.org/neuromorphic-computing/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20695115.svg)](https://doi.org/10.5281/zenodo.20695115)
 
 ## Requirements
 
