@@ -33,6 +33,7 @@ The development of BindsNET is supported by the Defense Advanced Research Projec
    installation
    quickstart
    guide
+   models_spec
 
 .. toctree::
    :maxdepth: 2
