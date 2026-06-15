@@ -30,6 +30,9 @@ the data it needs (declared in [DATA.md](DATA.md)).
 - Residual nondeterminism can come from CUDA atomic operations and first-run dataset
   download ordering. For stricter determinism run on CPU and, where feasible, set
   `torch.use_deterministic_algorithms(True)`.
+- An automated, seeded smoke-reproduction test
+  (`test/repro/test_smoke_repro.py`) runs a tiny network end-to-end on CPU and asserts
+  an exact pre-measured output, so determinism is checked continuously in CI.
 
 ### Scaling benchmark is a multi-simulator study
 `examples/benchmark/benchmark.py` compares BindsNET against **BRIAN2, PyNEST, ANNarchy,
