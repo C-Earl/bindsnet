@@ -40,6 +40,9 @@ the library provides.
   `play_breakout_from_ANN.py`, `random_baseline.py`, `random_network_baseline.py`.
 - **Preprocessing → spikes:** Atari observations are converted to network input by the
   example pipelines (see each script and `bindsnet/encoding/`).
+- **Pretrained artifact:** `examples/breakout/trained_shallow_ANN.pt` (a Breakout
+  Q-network transplanted into an SNN) — provenance in
+  [examples/breakout/README.md](examples/breakout/README.md).
 
 ---
 
