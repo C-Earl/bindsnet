@@ -1,0 +1,55 @@
+cff-version: 1.2.0
+message: "If you use BindsNET, please cite the article below."
+title: "BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python"
+type: software
+version: 0.3.3
+license: AGPL-3.0-only
+repository-code: "https://github.com/BindsNET/bindsnet"
+url: "https://bindsnet-docs.readthedocs.io/"
+keywords:
+  - spiking
+  - neural
+  - networks
+  - pytorch
+authors:
+  - family-names: Hazan
+    given-names: Hananel
+  - family-names: Saunders
+    given-names: Daniel J.
+  - family-names: Khan
+    given-names: Hassaan
+  - family-names: Patel
+    given-names: Devdhar
+  - family-names: Sanghavi
+    given-names: Darpan T.
+  - family-names: Siegelmann
+    given-names: Hava T.
+  - family-names: Kozma
+    given-names: Robert
+# identifiers:                      # TODO(WO-03): add once the software DOI is minted on Zenodo
+#   - type: doi
+#     value: 10.5281/zenodo.XXXXXXX
+#     description: Archived software release
+preferred-citation:
+  type: article
+  title: "BindsNET: A Machine Learning-Oriented Spiking Neural Networks Library in Python"
+  doi: 10.3389/fninf.2018.00089
+  url: "https://www.frontiersin.org/article/10.3389/fninf.2018.00089"
+  journal: "Frontiers in Neuroinformatics"
+  volume: 12
+  year: 2018
+  authors:
+    - family-names: Hazan
+      given-names: Hananel
+    - family-names: Saunders
+      given-names: Daniel J.
+    - family-names: Khan
+      given-names: Hassaan
+    - family-names: Patel
+      given-names: Devdhar
+    - family-names: Sanghavi
+      given-names: Darpan T.
+    - family-names: Siegelmann
+      given-names: Hava T.
+    - family-names: Kozma
+      given-names: Robert

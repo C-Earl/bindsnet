@@ -15,9 +15,19 @@ Check out the [BindsNET examples](https://github.com/BindsNET/bindsnet/tree/mast
 
 ## Requirements
 
-- Python >=3.9,<3.12
+- Python >=3.11,<3.14 (continuously tested on 3.11, 3.12, and 3.13)
 
 ## Setting things up
+
+### Reproducible install
+For a byte-for-byte reproducible environment, install the pinned dependency set from
+the committed `poetry.lock`:
+
+```
+poetry install
+```
+
+Alternatively, the provided `Dockerfile` builds the full pinned stack (see *Using Docker* below).
 
 ## Using Pip
 To install the most recent stable release from the GitHub repository
