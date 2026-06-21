@@ -8,7 +8,7 @@ import torch
 
 def create_model(
   device,
-  in_size = 100,
+  in_size=100,
   exc_size=10_000,
   inh_size=1_500,
   i_to_exc_connectivity=0.05,

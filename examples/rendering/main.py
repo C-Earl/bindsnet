@@ -1,5 +1,5 @@
 from bindsnet.rendering.app import Application
-from bindsnet.rendering.widgets import RasterPlot, VoltagePlot
+from bindsnet.rendering.widgets import RasterPlot, VoltagePlot, AdvancedRasterPlot
 from model import create_model
 import torch
 
@@ -25,15 +25,14 @@ network = create_model(
   INH_TO_EXC_CONNECTIVITY,
   EXC_TO_INH_CONNECTIVITY,
 )
-app = Application(network, 1400, 900, step_rate='auto')
+app = Application(network, 1400, 900, step_rate=99999)
 inputs = {"I" : torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
-  RasterPlot(
+  AdvancedRasterPlot(
     layer_name="EXC_LIF",
     max_timesteps=500,
   ),
-  row=0,
-  col=0,
+  row=0, col=0
 )
 # app.add_widget(
 #   VoltagePlot(

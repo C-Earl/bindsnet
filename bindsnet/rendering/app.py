@@ -13,8 +13,7 @@ class Application():
     self.inputs = None      # Set when run() is called; Inputs into network during runtime
     self.runtime = None     # Set when run() is called; Total runtime of network simulation
     self.current_time = 0   # Current timestep in network; incremented during runtime
-    self.step_rate = step_rate if type(step_rate) == str \
-      else 1/step_rate # Rate in hz to step network and update renders
+    self.step_rate = 1/step_rate
 
     # Initialize VisPy canvas and grid layout for widget rendering
     self.canvas = scene.SceneCanvas(
@@ -25,11 +24,20 @@ class Application():
       show=True
     )
     self.grid = self.canvas.central_widget.add_grid()
+    self.canvas.events.draw.connect(self.on_draw)
+
+    # Migrate network tensors to shared OpenGL buffers
+    network.migrate()
 
   def add_widget(self, widget: AbstractWidget, row: int, col: int):
     self.widgets.append(widget)
     widget.prime(self.network)    # Needed to initialize network-dependent widget variables
     self.grid.add_widget(widget.grid, row, col)
+
+  def on_draw(self, event):
+    pass
+    # for widget in self.widgets:
+    #   widget.draw()
 
   def step(self, event):
     # Check if runtime is over
@@ -44,6 +52,8 @@ class Application():
     # Update widget renders
     for widget in self.widgets:
       widget.render(self.current_time)
+
+    self.canvas.update()
 
     # Increment time
     self.current_time += 1
