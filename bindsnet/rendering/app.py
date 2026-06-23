@@ -23,7 +23,7 @@ class Application():
       size=(self.width, self.height),
       show=True
     )
-    self.grid = self.canvas.central_widget.add_grid()
+    self.grid = self.canvas.central_widget.add_grid(margin=10)
     self.canvas.events.draw.connect(self.on_draw)
 
     # Migrate network tensors to shared OpenGL buffers
