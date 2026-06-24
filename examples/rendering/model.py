@@ -4,6 +4,7 @@ from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import MulticompartmentConnection
 from bindsnet.network.topology_features import Weight, Mask
 from bindsnet.network.network import GUINetwork
+from bindsnet.learning.MCC_learning import MSTDP
 import torch
 
 def create_model(
@@ -30,6 +31,7 @@ def create_model(
         Weight(
           name='I_to_EXC_weight',
           value=torch.rand(in_size, exc_size, device=device),
+          learning_rule=MSTDP
         ),
         Mask(
           name='I_to_EXC_mask',

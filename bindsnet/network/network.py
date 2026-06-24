@@ -524,18 +524,6 @@ class GUINetwork(Network):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-
-        # TODO: Are VAOs needed?
-        # OpenGL array objects for plotting
-        # {
-        #   'layers': {
-        #       layer_name: {
-        #           's': vao_index,
-        #           ...
-        #    },
-        #    ...
-        # self.opengl_vaos = {'connections': {}, 'layers': {}}
-        # self.opengl_vao_dtypes = {}
         self.opengl_vbos = {'connections': {}, 'layers': {}}
 
     def migrate(self) -> None:
@@ -650,40 +638,11 @@ class GUINetwork(Network):
                     )
                 )
 
+        for c in self.connections:
+            self.connections[c].update(reward=1, learning=True)        # TODO: TEMPORARY arguments
+
     def run(self, inputs: Dict[str, torch.Tensor], time: int, **kwargs) -> None:
         raise NotImplementedError(
             "GUI Network does not currently support the 'run' method."
             "Please use the 'step' function to run the network one time step at a time"
         )
-
-    # def _render_spikes(self, vao: np.uint32, layer_size: int, time_step: int) -> None:
-    #     # language=rst
-    #     """
-    #     Render a raster plot
-    #
-    #     :return: None
-    #     """
-    #
-    #     ### Wrapping over plotted index ###
-    #     wrapped_time_step = time_step % self.max_time_steps
-    #     # Clear screen if we've plotted to the edge of the window
-    #     if wrapped_time_step == 0:
-    #         gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-    #     # Normalize to range [-1.0, +1.0]
-    #     time_step_adjusted = (wrapped_time_step) / self.max_time_steps * 2.0 - 1.0
-    #
-    #     ### Bind raster plot shader & variables ###
-    #     gl.glUseProgram(self.raster_plot_program)
-    #     gl.glUniform1f(
-    #         gl.glGetUniformLocation(self.raster_plot_program, "time_x"),
-    #         time_step_adjusted
-    #     )
-    #     gl.glUniform1f(
-    #         gl.glGetUniformLocation(self.raster_plot_program, "neuron_count"),
-    #         float(layer_size)
-    #     )
-    #     gl.glBindVertexArray(vao)
-    #     gl.glDrawArrays(gl.GL_POINTS, 0, layer_size)
-    #
-    #     glfw.swap_buffers(self.window)
-    #     glfw.poll_events()

@@ -1,5 +1,5 @@
 from bindsnet.rendering.app import Application
-from bindsnet.rendering.widgets import VoltagePlot, RasterPlot
+from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot
 from model import create_model
 import torch
 
@@ -8,7 +8,7 @@ BATCH_SIZE = 1
 DEVICE = "cuda"
 
 IN_SIZE = 100
-EXC_SIZE = 10_000
+EXC_SIZE = 20_000
 INH_SIZE = 2_000
 I_TO_EXC_CONNECTIVITY = 0.15
 I_TO_INH_CONNECTIVITY = 0.05
@@ -34,17 +34,13 @@ app.add_widget(
   ),
   row=0, col=0
 )
-# app.add_widget(
-#   VoltagePlot(
-#     width=700,
-#     height=450,
-#     x=50+700,
-#     y=50,
-#     neuron_ids=[10, 20],
-#     layer_name="EXC_LIF",
-#     max_timesteps=500,
-#   ),
-#   row=0,
-#   col=0
-# )
+app.add_widget(
+    VoltagePlot(layer_name="EXC_LIF", neuron_ids=[i for i in range(100)], max_timesteps=500),
+    row=0, col=1,
+)
+app.add_widget(
+    # Heatmap of the I -> EXC weight matrix (source.n=100 rows x target.n=10000 cols)
+    WeightPlot(source="I", target="EXC_LIF", feature_name="I_to_EXC_weight"),
+    row=1, col=0,
+)
 app.run(inputs=inputs, runtime=SIM_TIME)

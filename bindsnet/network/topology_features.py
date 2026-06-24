@@ -236,9 +236,6 @@ class AbstractFeature(ABC):
             **kwargs,
         )
 
-        #### Recycle unnecessary variables ####
-        del self.nu, self.reduction, self.decay, self.range
-
     def update(self, **kwargs) -> None:
         # language=rst
         """

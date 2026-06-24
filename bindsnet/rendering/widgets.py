@@ -1,9 +1,11 @@
 from vispy import scene
 import numpy as np
+import torch
+import colorsys
 from abc import abstractmethod
 import OpenGL.GL as gl
 from OpenGL.GL.shaders import compileShader, compileProgram
-from .visuals import RasterTexture
+from .visuals import RasterTexture, ScrollLine, FeatureMatrix
 from vispy.visuals.axis import Ticker
 
 
@@ -82,84 +84,46 @@ class GraphPlotWidget(AbstractWidget):
     if link_y: self.y_axis.link_view(self.view)
 
 
-class VoltagePlot(AbstractWidget):
+class VoltagePlot(GraphPlotWidget):
   def __init__(self,
-            width: float,
-            height: float,
-            x: float,
-            y: float,
-            layer_name: str,
-            neuron_ids: list[int],
-            max_timesteps: int = 100,
-            y_range: tuple[float, float] = (-80.0, 40.0)
-  ):
-
-    super().__init__(width, height, x, y)
+               layer_name: str,
+               neuron_ids: list[int],
+               max_timesteps: int = 100,
+               y_range: tuple[float, float] = (-80.0, 40.0)):
+    super().__init__(link_x=False)               # x = time, relabeled manually like RasterPlot
     self.layer_name = layer_name
     self.layer = None
+    self.neuron_ids = list(neuron_ids)
     self.max_timesteps = max_timesteps
-    self.neuron_ids = neuron_ids
-    self.history = {}   # Dictionary mapping neuron ID to list of [timestep, voltage] pairs
-    self.view.camera = 'panzoom'
-    self.lines = {}
-    self.y_range = y_range  # Plotted y-axis range
-
-    # Initial camera range
-    self.view.camera.set_range(
-      x=(0, self.max_timesteps),
-      y=(self.y_range[0], self.y_range[1])  # Typical membrane voltage range
-    )
+    self.y_range = y_range
+    self.lines = None
 
   def prime(self, network):
-
     self.layer = network.layers[self.layer_name]
-    for nid in self.neuron_ids:
-      self.history[nid] = []
-      self.lines[nid] = scene.visuals.Line(
-        parent=self.view.scene,
-        width=2
-      )
+    K = len(self.neuron_ids)
+    idx = torch.as_tensor(self.neuron_ids, device=self.layer.v.device, dtype=torch.long)
+    colors = np.array(
+      [[*colorsys.hsv_to_rgb(i / max(K, 1), 0.9, 1.0), 1.0] for i in range(K)],
+      dtype=np.float32)
+
+    self.lines = ScrollLine(n_neurons=K, width=self.max_timesteps,
+                            volt_getter=lambda: self.layer.v, idx=idx, colors=colors)
+    self.view.add(self.lines)
+
+    y0, y1 = self.y_range
+    self.view.camera.rect = (0, y0, self.max_timesteps, y1 - y0)
+    self.y_axis.axis.axis_label = "Voltage (mV)"
+    self.x_axis.axis.axis_label = "Timestep"
+    step = max(1, round(self.max_timesteps / 5 / 100) * 100) or 100
+    self.x_axis.axis.ticker = FixedStepTicker(
+      self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
 
   def render(self, t):
-    ### Extract voltage data from layer ###
-    voltages = self.layer.v
-    voltages = voltages.cpu().numpy().flatten()   # TODO: Make this more efficient/GPU-friendly?
-    for nid in self.neuron_ids:
-      v = voltages[nid]
-      self.history[nid].append([t, v])
+    self.lines.migrate_voltages(t)
+    self.x_axis.axis.domain = (t - self.max_timesteps + 1, t)
 
-    all_values = []
-    for nid in self.neuron_ids:
-      points = np.array(
-        self.history[nid],
-        dtype=np.float32
-      )
-
-      if len(points) < 2:
-        continue
-
-      self.lines[nid].set_data(points)
-      all_values.extend(points[:, 1])
-
-    ### Render ###
-    xmin = max(0, t - self.max_timesteps)
-    xmax = max(self.max_timesteps, t)
-
-    # Autoscale voltage range
-    if len(all_values) > 0:
-      ymin = min(all_values)
-      ymax = max(all_values)
-      padding = max(1.0, (ymax - ymin) * 0.1)
-      self.view.camera.set_range(
-        x=(xmin, xmax),
-        y=(ymin - padding, ymax + padding)
-      )
-
-  def get_history(self, neuron_id):
-    return np.array(
-      self.history[neuron_id],
-      dtype=np.float32
-    )
+  def get_history(self):
+    return None    # history lives on the GPU now; no CPU copy kept
 
 
 class RasterPlot(GraphPlotWidget):
@@ -198,3 +162,100 @@ class RasterPlot(GraphPlotWidget):
 
   def get_history(self):
     return np.array(self.history, dtype=np.float32)
+
+
+class FeaturePlot(GraphPlotWidget):
+  # language=rst
+  """
+  Abstract base for plotting a connection feature's ``value`` matrix as a live,
+  GPU-resident heatmap (x = target neuron, y = source neuron, color = value).
+
+  Shared here: locating the :class:`AbstractFeature` in the network and driving
+  the per-frame texture migration. Subclasses describe *how* to colour a specific
+  feature by overriding the ``texture_format`` / ``cmap`` knobs and ``_clim()``.
+  Same zero-copy contract as RasterPlot/VoltagePlot -- the value never leaves the
+  GPU (see [[gpu-only-rendering]]).
+  """
+
+  # --- knobs a subclass overrides for its feature ---
+  texture_format = np.float32     # GL texture dtype; must match the value tensor's dtype
+  cmap = 'viridis'                # vispy colormap name
+  x_label = "Target neuron"
+  y_label = "Source neuron"
+
+  def __init__(self, source: str, target: str, feature_name: str,
+               refresh_every: int = 1):
+    super().__init__()            # heatmap: both axes linked to the panzoom camera
+    self.source = source          # source layer name (connection key part 1)
+    self.target = target          # target layer name (connection key part 2)
+    self.feature_name = feature_name
+    self.refresh_every = max(1, refresh_every)  # throttle big-matrix re-uploads
+    self.connection = None        # Initialized in prime()
+    self.feature = None
+    self.visual = None
+
+  def prime(self, network):
+    self.connection = network.connections[(self.source, self.target)]
+    self.feature = self.connection.feature_index[self.feature_name]
+
+    value = self.feature.value
+    if not isinstance(value, torch.Tensor) or value.is_sparse or value.dim() != 2:
+      raise NotImplementedError(
+        "FeaturePlot only supports dense 2D feature values (source.n x target.n); "
+        f"got {type(value).__name__} shape={getattr(value, 'shape', None)} "
+        f"sparse={getattr(value, 'is_sparse', None)}."
+      )
+    rows, cols = value.shape      # (source.n, target.n)
+
+    self.visual = FeatureMatrix(
+      rows=rows, cols=cols,
+      value_getter=lambda: self.feature.value,  # re-fetch: value may be rebound
+      texture_format=self.texture_format,
+      clim=self._clim(),
+      cmap=self.cmap,
+    )
+    self.view.add(self.visual)
+    self.view.camera.rect = (0, 0, cols, rows)
+    self.y_axis.axis.axis_label = self.y_label
+    self.x_axis.axis.axis_label = self.x_label
+
+  def render(self, t):
+    if t % self.refresh_every == 0:
+      self.visual.migrate()
+
+  def get_history(self):
+    return None    # values live on the GPU; no CPU copy kept
+
+  @abstractmethod
+  def _clim(self):
+    # language=rst
+    """Return ``(low, high)`` colour limits in feature-value units."""
+    pass
+
+
+class WeightPlot(FeaturePlot):
+  # language=rst
+  """
+  Live heatmap of a :class:`Weight` feature's values. Uses a diverging colormap
+  centered at 0 so excitatory (positive) and inhibitory (negative) weights read
+  as opposite colours.
+  """
+
+  texture_format = np.float32
+  cmap = 'coolwarm'              # diverging: low=blue, 0=white, high=red
+
+  def __init__(self, source: str, target: str, feature_name: str,
+               clim: tuple[float, float] | None = None, refresh_every: int = 1):
+    super().__init__(source, target, feature_name, refresh_every=refresh_every)
+    self._clim_override = clim   # explicit color limits; else symmetric-from-data
+
+  def _clim(self):
+    if self._clim_override is not None:
+      return self._clim_override
+    # One-time symmetric range from the initial weights. A scalar reduction (two
+    # floats reach the host, not the matrix), so the zero-copy render path is
+    # untouched; symmetric keeps 0 at the colormap center (white).
+    m = self.feature.value.abs().max().item()
+    if not np.isfinite(m) or m == 0.0:
+      return (-1.0, 1.0)
+    return (-m, m)
