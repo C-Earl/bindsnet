@@ -160,9 +160,8 @@ class ScrollLineVisual(Visual):
     self.shared_program['u_head'] = 0.0
     self.shared_program['u_width'] = float(width)
 
-    self._ibo = gloo.IndexBuffer()
+    self._ibo_cache = {}   # head -> IndexBuffer; each head's seam is static, built once
     self._set_seam(0)
-    self._index_buffer = self._ibo
     self._draw_mode = 'lines'
     self.set_gl_state('translucent', depth_test=False)
 
@@ -175,7 +174,16 @@ class ScrollLineVisual(Visual):
     return (seg[None] + (np.arange(K) * W)[:, None, None]).reshape(-1, 2).astype(np.uint32)
 
   def _set_seam(self, head):
-    self._ibo.set_data(self._make_index(head))
+    # The index buffer for a given head never changes (the seam sits at a fixed
+    # slot), and head = t % width only takes W distinct values -- so build each
+    # head's buffer once and just rebind it thereafter. No per-frame NumPy
+    # rebuild or GPU re-upload (the old hot spot). Caches W buffers:
+    # W * K * (W-1) * 2 * 4 bytes; e.g. 100x100 -> ~7.7 MB.
+    ibo = self._ibo_cache.get(head)
+    if ibo is None:
+      ibo = gloo.IndexBuffer(self._make_index(head))
+      self._ibo_cache[head] = ibo
+    self._index_buffer = ibo
 
   def _register(self):
     # The gloo VBO's GL object only exists after the first draw, so register lazily.
@@ -200,7 +208,7 @@ class ScrollLineVisual(Visual):
 
     # gather ONLY the selected neurons, on-device -- no host copy.
     # re-fetch each frame: LIFNodes rebinds layer.v to a new tensor every step.
-    v = self.volt_getter().reshape(-1).index_select(0, self._idx).float().contiguous()
+    v = self.volt_getter().reshape(-1).index_select(0, self._idx)
 
     res = self._cuda_res
 
