@@ -168,13 +168,20 @@ class FeaturePlot(GraphPlotWidget):
   # language=rst
   """
   Abstract base for plotting a connection feature's ``value`` matrix as a live,
-  GPU-resident heatmap (x = target neuron, y = source neuron, color = value).
+  GPU-resident heatmap (x = target neuron, y = source neuron, color = value),
+  with a colorbar legend.
 
-  Shared here: locating the :class:`AbstractFeature` in the network and driving
-  the per-frame texture migration. Subclasses describe *how* to colour a specific
-  feature by overriding the ``texture_format`` / ``cmap`` knobs and ``_clim()``.
-  Same zero-copy contract as RasterPlot/VoltagePlot -- the value never leaves the
-  GPU (see [[gpu-only-rendering]]).
+  Shared here: locating the :class:`AbstractFeature` in the network, driving the
+  per-frame texture migration, and building the colorbar. Subclasses describe
+  *how* to colour a specific feature by overriding the ``texture_format`` /
+  ``cmap`` knobs (and optionally ``_clim()``). Same zero-copy contract as
+  RasterPlot/VoltagePlot -- the value never leaves the GPU (see
+  [[gpu-only-rendering]]).
+
+  Color limits default to the feature's declared ``range`` (e.g. a Weight built
+  with ``range=[-1, 1]``); when that range is non-finite (the default Weight
+  range is ``[-inf, +inf]``) we fall back to a symmetric range read once from the
+  initial values. Pass ``clim=(lo, hi)`` to override.
   """
 
   # --- knobs a subclass overrides for its feature ---
@@ -184,15 +191,17 @@ class FeaturePlot(GraphPlotWidget):
   y_label = "Source neuron"
 
   def __init__(self, source: str, target: str, feature_name: str,
-               refresh_every: int = 1):
+               clim: tuple[float, float] | None = None, refresh_every: int = 1):
     super().__init__()            # heatmap: both axes linked to the panzoom camera
     self.source = source          # source layer name (connection key part 1)
     self.target = target          # target layer name (connection key part 2)
     self.feature_name = feature_name
+    self._clim_override = clim    # explicit color limits; else range/data (see _clim)
     self.refresh_every = max(1, refresh_every)  # throttle big-matrix re-uploads
     self.connection = None        # Initialized in prime()
     self.feature = None
     self.visual = None
+    self.colorbar = None
 
   def prime(self, network):
     self.connection = network.connections[(self.source, self.target)]
@@ -206,18 +215,31 @@ class FeaturePlot(GraphPlotWidget):
         f"sparse={getattr(value, 'is_sparse', None)}."
       )
     rows, cols = value.shape      # (source.n, target.n)
+    clim = self._clim()
 
     self.visual = FeatureMatrix(
       rows=rows, cols=cols,
       value_getter=lambda: self.feature.value,  # re-fetch: value may be rebound
       texture_format=self.texture_format,
-      clim=self._clim(),
+      clim=clim,
       cmap=self.cmap,
     )
     self.view.add(self.visual)
     self.view.camera.rect = (0, 0, cols, rows)
     self.y_axis.axis.axis_label = self.y_label
     self.x_axis.axis.axis_label = self.x_label
+    self._add_colorbar(clim)
+
+  def _add_colorbar(self, clim):
+    # Vertical bar to the right of the view (grid col 2). White text/border: the
+    # canvas bg is black and ColorBarWidget defaults to black. label_color also
+    # colours the min/max tick labels (drawn from clim).
+    self.colorbar = scene.ColorBarWidget(
+      cmap=self.cmap, orientation='right',
+      label=self.feature_name, clim=clim,
+      label_color='white', border_color='white', border_width=1,
+    )
+    self.grid.add_widget(self.colorbar, row=0, col=2).width_max = 95
 
   def render(self, t):
     if t % self.refresh_every == 0:
@@ -226,11 +248,31 @@ class FeaturePlot(GraphPlotWidget):
   def get_history(self):
     return None    # values live on the GPU; no CPU copy kept
 
-  @abstractmethod
   def _clim(self):
     # language=rst
     """Return ``(low, high)`` colour limits in feature-value units."""
-    pass
+    if self._clim_override is not None:
+      return tuple(self._clim_override)
+
+    # Prefer the feature's declared range, when it's a finite (lo < hi) scalar pair.
+    rng = getattr(self.feature, "range", None)
+    if rng is not None and len(rng) == 2:
+      try:
+        lo, hi = float(rng[0]), float(rng[1])
+        if np.isfinite(lo) and np.isfinite(hi) and lo < hi:
+          return (lo, hi)
+      except (TypeError, ValueError):
+        pass   # e.g. a non-scalar tensor range -> fall through to data-derived
+
+    # Fallback: symmetric range from the initial values (a scalar reduction -- two
+    # floats reach the host, not the matrix -- so the zero-copy render path is
+    # untouched). Symmetric keeps 0 at the colormap center; rounded for a clean
+    # colorbar label.
+    m = self.feature.value.abs().max().item()
+    if not np.isfinite(m) or m == 0.0:
+      return (-1.0, 1.0)
+    m = round(m, 3)
+    return (-m, m)
 
 
 class WeightPlot(FeaturePlot):
@@ -238,24 +280,9 @@ class WeightPlot(FeaturePlot):
   """
   Live heatmap of a :class:`Weight` feature's values. Uses a diverging colormap
   centered at 0 so excitatory (positive) and inhibitory (negative) weights read
-  as opposite colours.
+  as opposite colours. Color limits follow the Weight's ``range`` if finite, else
+  a symmetric range from the initial weights (see :class:`FeaturePlot`).
   """
 
   texture_format = np.float32
   cmap = 'coolwarm'              # diverging: low=blue, 0=white, high=red
-
-  def __init__(self, source: str, target: str, feature_name: str,
-               clim: tuple[float, float] | None = None, refresh_every: int = 1):
-    super().__init__(source, target, feature_name, refresh_every=refresh_every)
-    self._clim_override = clim   # explicit color limits; else symmetric-from-data
-
-  def _clim(self):
-    if self._clim_override is not None:
-      return self._clim_override
-    # One-time symmetric range from the initial weights. A scalar reduction (two
-    # floats reach the host, not the matrix), so the zero-copy render path is
-    # untouched; symmetric keeps 0 at the colormap center (white).
-    m = self.feature.value.abs().max().item()
-    if not np.isfinite(m) or m == 0.0:
-      return (-1.0, 1.0)
-    return (-m, m)

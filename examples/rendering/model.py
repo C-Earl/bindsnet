@@ -31,7 +31,8 @@ def create_model(
         Weight(
           name='I_to_EXC_weight',
           value=torch.rand(in_size, exc_size, device=device),
-          learning_rule=MSTDP
+          learning_rule=MSTDP,
+          range=(0, 1)
         ),
         Mask(
           name='I_to_EXC_mask',
