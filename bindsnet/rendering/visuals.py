@@ -147,6 +147,8 @@ class ScrollLineVisual(Visual):
     self.width = width
     self.volt_getter = volt_getter      # callable -> live layer.v (rebound each step)
     self._idx = idx                     # torch LongTensor of selected neuron ids (on device)
+    # Reused gather destination so the per-frame index_select doesn't allocate.
+    self._gather_out = torch.empty(n_neurons, dtype=torch.float32, device=idx.device)
     self._cuda_res = None
     Visual.__init__(self, vcode=_SCROLL_VERT, fcode=_SCROLL_FRAG)
 
@@ -161,7 +163,12 @@ class ScrollLineVisual(Visual):
     self.shared_program['u_width'] = float(width)
 
     self._ibo_cache = {}   # head -> IndexBuffer; each head's seam is static, built once
-    self._set_seam(0)
+    # Build every head's index buffer up front. Each is static (a given head's
+    # seam sits at a fixed slot), so doing all W now turns the former per-frame
+    # _make_index + IndexBuffer cost -- a ~hundreds-of-us stutter for the first W
+    # frames -- into a one-time startup cost; _set_seam is a pure cache hit after.
+    # No extra steady-state memory: the lazy cache already grew to W buffers.
+    self._prebuild_seams()
     self._draw_mode = 'lines'
     self.set_gl_state('translucent', depth_test=False)
 
@@ -185,6 +192,13 @@ class ScrollLineVisual(Visual):
       self._ibo_cache[head] = ibo
     self._index_buffer = ibo
 
+  def _prebuild_seams(self):
+    # Populate _ibo_cache for every possible head so the simulation-time path is
+    # always a cache hit (see __init__). Leaves head 0 bound.
+    for head in range(self.width):
+      self._set_seam(head)
+    self._set_seam(0)
+
   def _register(self):
     # The gloo VBO's GL object only exists after the first draw, so register lazily.
     try:
@@ -206,9 +220,10 @@ class ScrollLineVisual(Visual):
 
     wrapped_t = t % self.width
 
-    # gather ONLY the selected neurons, on-device -- no host copy.
-    # re-fetch each frame: LIFNodes rebinds layer.v to a new tensor every step.
-    v = self.volt_getter().reshape(-1).index_select(0, self._idx)
+    # gather ONLY the selected neurons, on-device -- no host copy, and no per-frame
+    # allocation (reuse self._gather_out). re-fetch each frame: LIFNodes rebinds
+    # layer.v to a new tensor every step.
+    v = torch.index_select(self.volt_getter().reshape(-1), 0, self._idx, out=self._gather_out)
 
     res = self._cuda_res
 

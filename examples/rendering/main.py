@@ -2,6 +2,7 @@ from bindsnet.rendering.app import Application
 from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot
 from model import create_model
 import torch
+import voltage_probe
 
 SIM_TIME = 1000
 BATCH_SIZE = 1
