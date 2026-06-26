@@ -3,18 +3,23 @@ from vispy.scene.visuals import create_visual_node
 from vispy import gloo
 from vispy.gloo.context import get_current_canvas
 from cuda.bindings import driver
+import OpenGL.GL as gl
+import logging
 import torch
 import numpy as np
-from vispy.visuals.shaders import Function
 
-_ROLL_LOOKUP = """
-    uniform float u_roll;
-    vec4 rolled_lookup(vec2 texcoord) {
-        vec2 tc = texcoord;
-        tc.x = fract(tc.x + u_roll);   // ring-buffer roll; nearest filtering => no seam
-        return texture2D($texture, tc);
-    }
-"""
+
+class _UnsetUSpikesFilter(logging.Filter):
+  # RasterHistoryVisual deliberately never sets its `u_spikes` samplerBuffer
+  # (gloo has no samplerBuffer support; it defaults to texture unit 0, which we
+  # bind by hand). VisPy's one-time program validation logs that as an "unset
+  # variable" -- drop just that message so it doesn't look like an error.
+  def filter(self, record):
+    return 'u_spikes' not in record.getMessage()
+
+
+logging.getLogger('vispy').addFilter(_UnsetUSpikesFilter())
+
 
 def extract_gl_id(gl_object):
   canvas = get_current_canvas()   # TODO: Maybe a cleaner way to get canvas reference?
@@ -22,103 +27,108 @@ def extract_gl_id(gl_object):
   return canvas.context.shared.parser._objects[gl_object_id].handle
 
 
-class RasterTextureVisual(ImageVisual):
-  def __init__(self, layer_size, width, spike_tensor):
-    self.layer_size = layer_size
-    self.width = width
-    self.spike_tensor = spike_tensor
-    self._roll = 0.0  # current horizontal offset, persisted across rebuilds
-    self._roll_fn = None
-    dummy = np.zeros((layer_size, width), dtype=np.uint8)
-    self._cuda_tex_resource = None
-    super().__init__(data=dummy, texture_format=np.uint8, clim=(0, 1), cmap='grays')
-    self.freeze()
+# Full-history, true-zero-copy spike raster. The layer's spikes are written in
+# place by the node straight into a CUDA-registered GL buffer holding the WHOLE
+# run, (total_timesteps, batch, n_neurons) one byte per spike (time-major). This
+# visual binds that buffer as a TEXTURE_BUFFER and the fragment shader resolves
+# each on-screen pixel (time, neuron) -> texelFetch -> spike colour. No per-frame
+# copy, no ring/roll/seam: x is absolute time, so zooming out shows all history
+# back to t=0.
+#
+# #version 140: gives texelFetch + usamplerBuffer while still allowing
+# gl_FragColor and the attribute/varying qualifiers vispy's transform Function
+# emits (vispy rewrites these to in/out to match the version automatically).
+_RASTER_HIST_VERT = """
+#version 140
+attribute vec2 a_pos;     // quad corner in DATA coords: x=time [0,T], y=neuron [0,n]
+varying vec2 v_data;      // interpolated data coord -> fragment
+void main() {
+    v_data = a_pos;
+    gl_Position = $transform(vec4(a_pos, 0.0, 1.0));
+}
+"""
 
-  def _build_interpolation(self):
-    # ImageVisual installs its own get_data here on the first draw, so we
-    # wrap it AND reapply self._roll (otherwise the first build clobbers it).
-    super()._build_interpolation()
-    fn = Function(_ROLL_LOOKUP)
-    fn['texture'] = self._texture
-    self._data_lookup_fn = fn
-    self._roll_fn = fn
-    self.shared_program.frag['get_data'] = fn
-    self.shared_program['u_roll'] = self._roll
-
-  def _register_texture(self):
-    # The gloo texture's GL object only exists after the first draw has
-    # flushed it to the GPU, so this is done lazily.
-    try:
-      gl_tex_id = extract_gl_id(self._texture)
-    except (KeyError, AttributeError):
-      return False
-    if not gl_tex_id:
-      return False
-
-    GL_TEXTURE_2D = 0x0DE1
-    err, resource = driver.cuGraphicsGLRegisterImage(
-      gl_tex_id,
-      GL_TEXTURE_2D,
-      0,  # CU_GRAPHICS_REGISTER_FLAGS_NONE
-    )
-    if err != 0:
-      raise RuntimeError(f"cuGraphicsGLRegisterImage failed: {err}")
-    self._cuda_tex_resource = resource
-    return True
-
-  def migrate_spikes(self, t: int):
-    if self._cuda_tex_resource is None and not self._register_texture():
-      return  # texture not on the GPU yet; skip this frame
-
-    wrapped_t = t % self.width
-
-    # Spike vector for this timestep: layer_size contiguous uint8 bytes
-    # spikes = self.spike_tensor.contiguous()
-    src_ptr = self.spike_tensor.data_ptr()
-
-    res = self._cuda_tex_resource
-
-    ### Texture becomes CUDA-owned ###
-    (err,) = driver.cuGraphicsMapResources(1, res, 0)
-    if err != 0:
-      raise RuntimeError(f"map texture failed: {err}")
-
-    err, array = driver.cuGraphicsSubResourceGetMappedArray(res, 0, 0)
-    if err != 0:
-      raise RuntimeError(f"get mapped array failed: {err}")
-
-    ### Copy column ###
-    cp = driver.CUDA_MEMCPY2D()
-    cp.srcMemoryType = driver.CUmemorytype.CU_MEMORYTYPE_DEVICE
-    cp.srcDevice = src_ptr
-    cp.srcPitch = 1
-    cp.dstMemoryType = driver.CUmemorytype.CU_MEMORYTYPE_ARRAY
-    cp.dstArray = array
-    cp.dstXInBytes = wrapped_t  # column offset (1 byte/texel)
-    cp.dstY = 0
-    cp.WidthInBytes = 1  # one timestep wide
-    cp.Height = self.layer_size  # all neurons tall
-    (err,) = driver.cuMemcpy2D(cp)  # synchronous; `spikes` stays alive
-    if err != 0:
-      raise RuntimeError(f"cuMemcpy2D failed: {err}")
-
-    ### Hand the texture back to OpenGL so VisPy can draw ###
-    (err,) = driver.cuGraphicsUnmapResources(1, res, 0)
-    if err != 0:
-      raise RuntimeError(f"unmap texture failed: {err}")
-
-    ### Update the shader's roll offset so the texture appears to scroll ###
-    self._roll = ((wrapped_t + 1) % self.width) / self.width
-    if self._roll_fn is not None:
-      self.shared_program['u_roll'] = self._roll
-    self.update()
-
-  def __del__(self):
-    if self._cuda_tex_resource is not None:
-      driver.cuGraphicsUnregisterResource(self._cuda_tex_resource)
+_RASTER_HIST_FRAG = """
+#version 140
+varying vec2 v_data;
+uniform usamplerBuffer u_spikes;   // R8UI history buffer; left UNSET -> texture unit 0
+uniform int u_n;        // neurons displayed (layer n)
+uniform int u_T;        // total timesteps in the buffer
+uniform int u_stride;   // elements per timestep row (= batch*n)
+uniform vec4 u_on;      // spike colour
+uniform vec4 u_off;     // background colour
+void main() {
+    int time   = int(floor(v_data.x));
+    int neuron = int(floor(v_data.y));
+    if (time < 0 || time >= u_T || neuron < 0 || neuron >= u_n) discard;
+    int idx = time * u_stride + neuron;          // time-major; batch 0
+    uint s = texelFetch(u_spikes, idx).r;        // 0 or 1
+    gl_FragColor = (s != 0u) ? u_on : u_off;
+}
+"""
 
 
-RasterTexture = create_visual_node(RasterTextureVisual)
+class RasterHistoryVisual(Visual):
+  def __init__(self, n_neurons, total_timesteps, row_stride, gl_buffer_id,
+               on_color=(1.0, 1.0, 1.0, 1.0), off_color=(0.0, 0.0, 0.0, 1.0)):
+    self.n = int(n_neurons)
+    self.T = int(total_timesteps)
+    self.stride = int(row_stride)        # = batch * n; idx = time*stride + neuron
+    self._gl_buffer_id = int(gl_buffer_id)   # raw GL buffer with the spike history
+    self._tbo_tex = None                 # GL texture viewing that buffer (lazy)
+    Visual.__init__(self, vcode=_RASTER_HIST_VERT, fcode=_RASTER_HIST_FRAG)
+
+    # One quad spanning the whole data region; the fragment shader does the work.
+    corners = np.array([[0, 0], [self.T, 0], [0, self.n], [self.T, self.n]],
+                       dtype=np.float32)
+    self._pos_vbo = gloo.VertexBuffer(corners)
+    self.shared_program['a_pos'] = self._pos_vbo
+    self.shared_program['u_n'] = self.n
+    self.shared_program['u_T'] = self.T
+    self.shared_program['u_stride'] = self.stride
+    self.shared_program['u_on'] = on_color
+    self.shared_program['u_off'] = off_color
+    # NOTE: u_spikes is deliberately never set. gloo has no samplerBuffer support,
+    # and an unset sampler defaults to texture unit 0, which we bind in _prepare_draw.
+    self._draw_mode = 'triangle_strip'
+    self.set_gl_state('translucent', depth_test=False)
+
+  def _create_tbo(self):
+    # A buffer texture is a 1-D view of the GL buffer as R8UI texels. glTexBuffer
+    # only references the buffer (no copy); texelFetch always reads its live bytes.
+    tex = gl.glGenTextures(1)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, tex)
+    gl.glTexBuffer(gl.GL_TEXTURE_BUFFER, gl.GL_R8UI, self._gl_buffer_id)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, 0)
+    self._tbo_tex = tex
+
+  def _prepare_draw(self, view):
+    if self._tbo_tex is None:
+      self._create_tbo()
+    # Bind our buffer-texture to unit 0 with an IMMEDIATE raw GL call. gloo's own
+    # draw is deferred to the canvas GLIR flush, but this binding persists until
+    # then -- no other visual binds the GL_TEXTURE_BUFFER target -- and u_spikes
+    # samples unit 0 by default. This is the one raw-GL touch the deferred GLIR
+    # pipeline forces (gloo can't carry a samplerBuffer for us).
+    gl.glActiveTexture(gl.GL_TEXTURE0)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, self._tbo_tex)
+
+  def _prepare_transforms(self, view):
+    view.view_program.vert['transform'] = view.transforms.get_transform()
+
+  def _compute_bounds(self, axis, view):
+    if axis == 0:
+      return (0, self.T)
+    if axis == 1:
+      return (0, self.n)
+    return None
+
+  # No __del__: the buffer texture is freed when the GL context is destroyed.
+  # Calling glDeleteTextures from __del__ races interpreter shutdown (PyOpenGL
+  # lazily imports an array handler too late -> a noisy stderr message).
+
+
+RasterHistory = create_visual_node(RasterHistoryVisual)
 
 
 _SCROLL_VERT = """
@@ -214,7 +224,10 @@ class ScrollLineVisual(Visual):
     self._cuda_res = res
     return True
 
-  def migrate_voltages(self, t):
+  def capture_voltages(self, t):
+    # CHEAP per-step data capture: copy this timestep's voltages into the ring
+    # buffer. Must run EVERY step (else the trace gets gaps), independent of how
+    # often we actually draw. Does NOT call update() -- see refresh().
     if self._cuda_res is None and not self._register():
       return  # buffer not on the GPU yet; skip this frame
 
@@ -255,7 +268,13 @@ class ScrollLineVisual(Visual):
     if err != 0:
       raise RuntimeError(f"unmap buffer failed: {err}")
 
-    ### Roll so the newest column sits at the right edge, and break the seam ###
+  def refresh(self, t):
+    # DRAW-time only: point the roll at the newest captured column, break the seam
+    # there, and request a redraw. All captured columns are already in the ring, so
+    # this can run less often than capture without losing data.
+    if self._cuda_res is None:
+      return  # nothing captured yet
+    wrapped_t = t % self.width
     self.shared_program['u_head'] = float(wrapped_t)
     self._set_seam(wrapped_t)
     self.update()
@@ -283,10 +302,9 @@ class FeatureMatrixVisual(ImageVisual):
   Renders a connection feature's ``value`` matrix (shape ``(source_n, target_n)``)
   as a live heatmap, kept entirely on the GPU.
 
-  Mirrors :class:`RasterTextureVisual`'s CUDA<->GL *texture* interop, but a feature
-  value is a snapshot (no time axis) rather than a rolling time series, so there is
-  no ring-buffer roll/seam handling: each refresh copies the WHOLE matrix into the
-  texture with a single ``cuMemcpy2D`` (device->array, no host roundtrip).
+  Uses CUDA<->GL *texture* interop: a feature value is a snapshot (no time axis), so
+  each refresh copies the WHOLE matrix into the texture with a single ``cuMemcpy2D``
+  (device->array, no host roundtrip).
 
   The dtype/clim/cmap are parameters so the same visual serves any feature
   (weights, mask, probability, ...); the owning widget picks them.
@@ -306,7 +324,7 @@ class FeatureMatrixVisual(ImageVisual):
 
   def _register_texture(self):
     # The gloo texture's GL object only exists after the first draw has flushed it
-    # to the GPU, so registration is done lazily (same as RasterTextureVisual).
+    # to the GPU, so registration is done lazily.
     try:
       gl_tex_id = extract_gl_id(self._texture)
     except (KeyError, AttributeError):

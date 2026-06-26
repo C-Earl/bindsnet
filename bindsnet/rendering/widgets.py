@@ -3,9 +3,7 @@ import numpy as np
 import torch
 import colorsys
 from abc import abstractmethod
-import OpenGL.GL as gl
-from OpenGL.GL.shaders import compileShader, compileProgram
-from .visuals import RasterTexture, ScrollLine, FeatureMatrix
+from .visuals import RasterHistory, ScrollLine, FeatureMatrix
 from vispy.visuals.axis import Ticker
 
 
@@ -47,24 +45,24 @@ class FixedStepTicker(Ticker):
 
 class AbstractWidget:
   def __init__(self):
-    # self.view = scene.widgets.ViewBox()   # VisPy ViewBox for widget rendering
     self.grid = scene.widgets.Grid()    # Grid to hold widget view and axes (if applicable)
-    self.history = []       # List to store historical data for rendering. One element per time-step
 
   @abstractmethod
-  def prime(self, network):
+  def prime(self, network, runtime):
+    pass
+
+  def capture(self, t):
+    # Cheap per-step data capture into GPU buffers. Runs EVERY step regardless of
+    # draw rate, so throttling the draw never drops data. Default: nothing to do
+    # (e.g. the history raster records spikes in network.step). Override for
+    # widgets that fill a ring buffer (voltage).
     pass
 
   @abstractmethod
-  def render(self):
+  def render(self, t):
+    # Draw-time refresh: update camera/axes/uniforms and request a redraw. Runs only
+    # on draw steps (see Application.draw_fps throttling).
     pass
-
-  @abstractmethod
-  def get_history(self):
-    pass
-
-  def reset(self):
-    self.history = []
 
 
 # A plotting widget with x and y axis
@@ -98,7 +96,7 @@ class VoltagePlot(GraphPlotWidget):
     self.y_range = y_range
     self.lines = None
 
-  def prime(self, network):
+  def prime(self, network, runtime=None):
     self.layer = network.layers[self.layer_name]
     K = len(self.neuron_ids)
     idx = torch.as_tensor(self.neuron_ids, device=self.layer.v.device, dtype=torch.long)
@@ -118,50 +116,71 @@ class VoltagePlot(GraphPlotWidget):
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
 
-  def render(self, t):
-    self.lines.migrate_voltages(t)
-    self.x_axis.axis.domain = (t - self.max_timesteps + 1, t)
+  def capture(self, t):
+    # Write this timestep's voltages into the ring EVERY step (no gaps if the draw
+    # is throttled). The draw-time roll/seam/update happens in render().
+    self.lines.capture_voltages(t)
 
-  def get_history(self):
-    return None    # history lives on the GPU now; no CPU copy kept
+  def render(self, t):
+    self.lines.refresh(t)
+    self.x_axis.axis.domain = (t - self.max_timesteps + 1, t)
 
 
 class RasterPlot(GraphPlotWidget):
+  # language=rst
+  """
+  Full-history, true-zero-copy spike raster (x = absolute time, y = neuron).
+
+  The layer's spikes are written in place by the node into a CUDA-registered GL
+  buffer covering the WHOLE run (see :meth:`GUINetwork.enable_spike_history`),
+  and :class:`RasterHistoryVisual` reads it via ``texelFetch`` -- no per-frame
+  copy, no ring buffer. During the run the camera follows a trailing window of
+  ``max_timesteps``; once the sim stops, zoom/pan freely to inspect all history
+  back to t=0 (the x-axis is linked to the camera, so labels are real time).
+  """
+
   def __init__(self,
                layer_name: str,
                max_timesteps: int = 100):
-    super().__init__()
+    super().__init__()          # x_axis linked to the camera: absolute-time labels
     self.layer_name = layer_name
-    self.layer = None           # Initialized after added to Application object
-    self.max_timesteps = max_timesteps
-    self.current_write_head = 0
+    self.layer = None           # Initialized in prime()
+    self.max_timesteps = max_timesteps   # trailing follow-window width
+    self.total_timesteps = None # full history capacity (= runtime), set in prime()
     self.raster = None
 
-  def prime(self, network):
+  def prime(self, network, runtime=None):
     self.layer = network.layers[self.layer_name]
     self.layer_size = self.layer.n
-    self.raster = RasterTexture(
-        layer_size=self.layer_size, width=self.max_timesteps,
-        spike_tensor=self.layer.s,
+    if runtime is None:
+      raise ValueError(
+        "RasterPlot needs the total runtime to size its full-history buffer; "
+        "it is supplied by Application.run().")
+
+    # Allocate the GPU history buffer and route the layer's spikes into it.
+    info = network.enable_spike_history(self.layer_name, runtime)
+    self.total_timesteps = info['T']
+    self.raster = RasterHistory(
+        n_neurons=info['n'], total_timesteps=info['T'],
+        row_stride=info['row'], gl_buffer_id=info['vbo'],
     )
     self.view.add(self.raster)
+    # Start showing the first trailing window; absolute-time x means zoom-out
+    # reveals all of history.
     self.view.camera.rect = (0, 0, self.max_timesteps, self.layer_size)
     self.y_axis.axis.axis_label = "Neuron"
     self.x_axis.axis.axis_label = "Timestep"
-    step = max(1, round(self.max_timesteps / 5 / 100) * 100) or 100  # e.g. 500 -> 100
+    # Ticks at constant multiples of `step` so a sliding domain produces smoothly
+    # translating labels instead of relocated "nice" ones (which jitter/swap).
+    step = max(1, round(self.max_timesteps / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
-      self.x_axis.axis, step=step,
-      anchors=self.x_axis.axis.ticker._anchors,  # preserve label anchoring
-    )
+      self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
 
   def render(self, t):
-    self.raster.migrate_spikes(t)
-    # scene-x 0..max_timesteps is now linear in time -> relabel it as absolute time
-    self.x_axis.axis.domain = (t - self.max_timesteps + 1, t)
-
-
-  def get_history(self):
-    return np.array(self.history, dtype=np.float32)
+    # The shader reads the buffer live -- just slide the camera to follow the newest
+    # activity; the linked x-axis relabels itself to absolute time.
+    x0 = max(0, t - self.max_timesteps + 1)
+    self.view.camera.rect = (x0, 0, self.max_timesteps, self.layer_size)
 
 
 class FeaturePlot(GraphPlotWidget):
@@ -203,7 +222,7 @@ class FeaturePlot(GraphPlotWidget):
     self.visual = None
     self.colorbar = None
 
-  def prime(self, network):
+  def prime(self, network, runtime=None):
     self.connection = network.connections[(self.source, self.target)]
     self.feature = self.connection.feature_index[self.feature_name]
 
@@ -244,9 +263,6 @@ class FeaturePlot(GraphPlotWidget):
   def render(self, t):
     if t % self.refresh_every == 0:
       self.visual.migrate()
-
-  def get_history(self):
-    return None    # values live on the GPU; no CPU copy kept
 
   def _clim(self):
     # language=rst

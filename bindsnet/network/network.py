@@ -525,6 +525,11 @@ class GUINetwork(Network):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.opengl_vbos = {'connections': {}, 'layers': {}}
+        # name -> dict describing a CUDA-registered GL buffer holding that layer's
+        # FULL spike history, (T, batch, n) one byte/spike. Populated lazily by a
+        # raster widget via enable_spike_history(); see step() for the write path.
+        self._spike_history = {}
+        self._step_t = 0  # internal timestep counter (used if step() called without t)
 
     def migrate(self) -> None:
         ### Migrate all layers and connections to shared buffers ###
@@ -617,8 +622,122 @@ class GUINetwork(Network):
 
         return torch_tensor, vao
 
-    def step(self, input: Dict[str, torch.Tensor]) -> None:
+    def enable_spike_history(self, layer_name: str, total_timesteps: int) -> dict:
+        # language=rst
+        """
+        Allocate a CUDA-registered GL buffer holding a layer's FULL spike history
+        and route the layer's ``s`` into it so spikes are written in place (true
+        zero copy -- the node's ``torch.ge(..., out=self.s)`` lands straight in the
+        buffer). A full-history raster visual then reads it via ``texelFetch``.
+
+        Layout is time-major ``(T, batch, n)``, one byte per spike. ``T`` is
+        clamped so ``batch * n * T`` fits ``GL_MAX_TEXTURE_BUFFER_SIZE``.
+
+        :param layer_name: Name of the layer to record (must already be added).
+        :param total_timesteps: Desired history length (typically the full run).
+        :return: ``{'vbo', 'T', 'n', 'row'}`` for the owning widget/visual.
+        """
+        layer = self.layers[layer_name]
+        n = int(layer.n)
+        batch = int(self.batch_size)
+        row = batch * n                       # bytes (=elements) per timestep
+        T = int(total_timesteps)
+
+        # Cap to the driver's texture-buffer limit so glTexBuffer can address it all.
+        max_texels = int(gl.glGetIntegerv(gl.GL_MAX_TEXTURE_BUFFER_SIZE))
+        if row * T > max_texels:
+            T = max(1, max_texels // row)
+            warnings.warn(
+                f"Spike history for '{layer_name}' capped to T={T} timesteps "
+                f"({row}*{total_timesteps} bytes exceeds GL_MAX_TEXTURE_BUFFER_SIZE="
+                f"{max_texels}). History before the cap will not be retained."
+            )
+
+        nbytes = row * T  # 1 byte per element (bool spikes)
+
+        ### Allocate a GL buffer, zero-initialised so unwritten rows read 0 ###
+        vbo = int(gl.glGenBuffers(1))
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, nbytes,
+                        np.zeros(nbytes, dtype=np.uint8), gl.GL_DYNAMIC_DRAW)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+        if gl.glIsBuffer(vbo) == 0:
+            raise RuntimeError("Failed to create spike-history GL buffer")
+
+        ### Register with CUDA, reusing PyTorch's existing context (NONE flag: keep
+        ### prior contents -- this is an accumulating history, not WRITE_DISCARD) ###
+        self._ensure_cuda_context()
+        err, res = driver.cuGraphicsGLRegisterBuffer(buffer=vbo, Flags=0)
+        if err != 0:
+            raise RuntimeError(f"cuGraphicsGLRegisterBuffer (history) failed: {err}")
+
+        self._spike_history[layer_name] = {
+            'vbo': vbo, 'res': res, 'T': T, 'n': n, 'batch': batch, 'row': row,
+            'shape': tuple(layer.shape),  # per-sample shape, e.g. (n,)
+            # Scratch s used once t exceeds the (possibly capped) capacity, so the
+            # sim keeps running -- it just stops recording past T.
+            'scratch': torch.zeros(batch, *layer.shape, dtype=torch.bool,
+                                   device=layer.s.device),
+        }
+        return {'vbo': vbo, 'T': T, 'n': n, 'row': row}
+
+    def _ensure_cuda_context(self) -> None:
+        # Reuse the current (PyTorch/cupy-created) CUDA context instead of calling
+        # cuCtxCreate per buffer (the bug in _create_shared_buffer). A CUDA model is
+        # already resident, so a context exists; touch cupy if somehow it doesn't.
+        (err,) = driver.cuInit(0)
+        if err != 0:
+            raise RuntimeError(f"cuInit failed: {err}")
+        err, ctx = driver.cuCtxGetCurrent()
+        if err != 0 or int(ctx) == 0:
+            cp.zeros(1)  # force a context onto this thread
+            err, ctx = driver.cuCtxGetCurrent()
+            if err != 0 or int(ctx) == 0:
+                raise RuntimeError("No current CUDA context for GL interop")
+
+    def _map_history(self, h: dict) -> torch.Tensor:
+        # Map the GL buffer (CUDA takes ownership so the node can write it) and wrap
+        # it as a (T, batch, *shape) torch view. The mapped pointer MAY change
+        # between maps, but in practice is stable, so cache the wrapped view and
+        # only rebuild it when the pointer actually moves (torch.as_tensor over the
+        # CUDA-array-interface is not free per step).
+        (err,) = driver.cuGraphicsMapResources(1, h['res'], 0)
+        if err != 0:
+            raise RuntimeError(f"map spike history failed: {err}")
+        err, ptr, size = driver.cuGraphicsResourceGetMappedPointer(h['res'])
+        if err != 0:
+            raise RuntimeError(f"get mapped pointer (history) failed: {err}")
+        if h.get('ptr') == int(ptr) and h.get('view') is not None:
+            return h['view']
+        n_elems = h['row'] * h['T']
+        cp_ptr = cp.cuda.MemoryPointer(
+            cp.cuda.UnownedMemory(int(ptr), size, h['res']), 0)
+        cp_arr = cp.ndarray(n_elems, dtype=cp.bool_, memptr=cp_ptr)
+        view = torch.as_tensor(cp_arr).view(h['T'], h['batch'], *h['shape'])
+        h['ptr'] = int(ptr)
+        h['view'] = view
+        return view
+
+    def step(self, input: Dict[str, torch.Tensor], t: int = None) -> None:
         ### Simulate network activity for one time step ###
+        if t is None:
+            t = self._step_t
+
+        # Map any spike-history buffers and point each layer's `s` at the PREVIOUS
+        # timestep's row, so _get_inputs() / connections read last step's spikes
+        # through a valid (currently-mapped) pointer. At t==0 this indexes the last
+        # (still-zero) row -- correct: no spikes precede the run.
+        views = {}
+        for name, h in self._spike_history.items():
+            view = self._map_history(h)
+            views[name] = view
+            # Previous timestep's spikes (valid, mapped) for _get_inputs. Past the
+            # capacity cap, fall back to scratch (no recorded history to read).
+            if 0 <= t - 1 < h['T']:
+                self.layers[name].s = view[t - 1]
+            else:
+                self.layers[name].s = h['scratch']
+
         current_inputs = {}
         current_inputs.update(self._get_inputs())
         for l in self.layers:
@@ -628,6 +747,13 @@ class GUINetwork(Network):
                     current_inputs[l] += input[l]
                 else:
                     current_inputs[l] = input[l]
+
+            # Point a recorded layer's `s` at THIS timestep's row so the in-place
+            # spike write (torch.ge(out=self.s)) accumulates straight into history.
+            # Past the capacity cap, write to scratch instead (recording stopped).
+            if l in views:
+                h = self._spike_history[l]
+                self.layers[l].s = views[l][t] if t < h['T'] else h['scratch']
 
             if l in current_inputs:
                 self.layers[l].forward(x=current_inputs[l])
@@ -640,6 +766,14 @@ class GUINetwork(Network):
 
         for c in self.connections:
             self.connections[c].update(reward=1, learning=True)        # TODO: TEMPORARY arguments
+
+        # Hand the buffers back to OpenGL so the raster visual can draw them.
+        for name, h in self._spike_history.items():
+            (err,) = driver.cuGraphicsUnmapResources(1, h['res'], 0)
+            if err != 0:
+                raise RuntimeError(f"unmap spike history failed: {err}")
+
+        self._step_t = t + 1
 
     def run(self, inputs: Dict[str, torch.Tensor], time: int, **kwargs) -> None:
         raise NotImplementedError(

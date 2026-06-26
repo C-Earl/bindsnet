@@ -2,11 +2,11 @@ from bindsnet.rendering.app import Application
 from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot
 from model import create_model
 import torch
-import voltage_probe
 
 SIM_TIME = 1000
 BATCH_SIZE = 1
 DEVICE = "cuda"
+DRAW_FPS = 40          # cap plot redraws; the sim runs as fast as it can between draws
 
 IN_SIZE = 100
 EXC_SIZE = 20_000
@@ -26,22 +26,19 @@ network = create_model(
   INH_TO_EXC_CONNECTIVITY,
   EXC_TO_INH_CONNECTIVITY,
 )
-app = Application(network, 1400, 900, step_rate=99999999999)
-inputs = {"I" : torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
+app = Application(network, 1400, 900, step_rate=99999999999, draw_fps=DRAW_FPS)
+inputs = {"I": torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
-  RasterPlot(
-    layer_name="EXC_LIF",
-    max_timesteps=500,
-  ),
-  row=0, col=0
+  RasterPlot(layer_name="EXC_LIF", max_timesteps=500),
+  row=0, col=0,
 )
 app.add_widget(
-    VoltagePlot(layer_name="EXC_LIF", neuron_ids=[i for i in range(100)], max_timesteps=500),
-    row=0, col=1,
+  VoltagePlot(layer_name="EXC_LIF", neuron_ids=[i for i in range(100)], max_timesteps=500),
+  row=0, col=1,
 )
 app.add_widget(
-    # Heatmap of the I -> EXC weight matrix (source.n=100 rows x target.n=10000 cols)
-    WeightPlot(source="I", target="EXC_LIF", feature_name="I_to_EXC_weight"),
-    row=1, col=0,
+  # Heatmap of the I -> EXC weight matrix (source.n=100 rows x target.n=20000 cols)
+  WeightPlot(source="I", target="EXC_LIF", feature_name="I_to_EXC_weight"),
+  row=1, col=0,
 )
 app.run(inputs=inputs, runtime=SIM_TIME)
