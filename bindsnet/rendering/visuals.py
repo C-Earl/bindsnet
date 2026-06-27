@@ -2,7 +2,10 @@ from vispy.visuals import ImageVisual, Visual
 from vispy.scene.visuals import create_visual_node
 from vispy import gloo
 from vispy.gloo.context import get_current_canvas
-from cuda.bindings import driver
+try:
+    from cuda.bindings import driver   # CUDA<->GL interop; absent on CPU-only installs
+except Exception:
+    driver = None
 import OpenGL.GL as gl
 import logging
 import numpy as np
@@ -292,6 +295,7 @@ class FeatureMatrixVisual(ImageVisual):
     self.cols = cols                  # = target.n  -> texture width  / x axis
     self.value_getter = value_getter  # callable -> live feature.value (device tensor)
     self._cuda_tex_resource = None
+    self._texture_format = texture_format   # used by the CPU set_data fallback
     dummy = np.zeros((rows, cols), dtype=texture_format)
     # Explicit numeric clim (NOT 'auto'): GPU-scaled textures freeze 'auto' clim on
     # the first (all-zero) upload, mapping everything to one color. See memory note.
@@ -322,6 +326,17 @@ class FeatureMatrixVisual(ImageVisual):
   def migrate(self):
     # Push the feature's current value matrix into the texture. No `t`: a feature
     # value is a live snapshot, not a function of the timestep.
+
+    # CPU model (or no CUDA): no texture interop -- upload the whole matrix with a
+    # host copy each refresh. Cheap relative to a CPU simulation step, and the
+    # value matrix is the only thing that crosses the bus.
+    if driver is None or not self.value_getter().is_cuda:
+      val = self.value_getter().detach().to('cpu').numpy().astype(
+        self._texture_format, copy=False)
+      self.set_data(val)
+      self.update()
+      return
+
     if self._cuda_tex_resource is None and not self._register_texture():
       return  # texture not on the GPU yet; skip this frame
 

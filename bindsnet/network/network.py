@@ -496,11 +496,21 @@ class Network(torch.nn.Module):
 import glfw
 import OpenGL.GL as gl
 from OpenGL.GL.shaders import compileShader, compileProgram
-from cuda.bindings import driver
-from cuda.bindings import runtime
-import cupy as cp
 import warnings
 import numpy as np
+
+# CUDA<->GL interop is only used when the model runs on the GPU. On a CPU model
+# (or a machine without CUDA) these are never touched, so import them optionally:
+# the renderer falls back to plain host->GL uploads (glBufferSubData / set_data).
+try:
+    from cuda.bindings import driver
+    from cuda.bindings import runtime
+    import cupy as cp
+    _CUDA_INTEROP_AVAILABLE = True
+except Exception:  # cupy / cuda.bindings absent (e.g. CPU-only install)
+    driver = runtime = cp = None
+    _CUDA_INTEROP_AVAILABLE = False
+
 pytorch_cp_type_map = {
     torch.float32: cp.float32,
     torch.float64: cp.float64,
@@ -508,7 +518,7 @@ pytorch_cp_type_map = {
     torch.int64: cp.int64,
     torch.uint8: cp.uint8,
     torch.bool: cp.bool,
-}
+} if _CUDA_INTEROP_AVAILABLE else {}
 pytorch_opengl_type_map = {
     torch.float32: gl.GL_FLOAT,
     torch.float64: gl.GL_DOUBLE,
@@ -535,9 +545,36 @@ class GUINetwork(Network):
         # voltage widget via enable_voltage_history(); see step() for the write path.
         self._voltage_history = {}
         self._step_t = 0  # internal timestep counter (used if step() called without t)
+        # True  -> model lives on the GPU: history is recorded zero-copy via CUDA<->GL
+        #          interop (the node writes straight into mapped GL buffers).
+        # False -> model lives on the CPU (or no CUDA): history is recorded by uploading
+        #          each step's row from the host tensor into the GL buffer.
+        # Resolved from the layers' device on first use (see _resolve_backend).
+        self._use_cuda = None
+
+    def _resolve_backend(self) -> bool:
+        # language=rst
+        """
+        Decide once whether the GPU (CUDA<->GL interop) or CPU (host->GL upload) render
+        path is used, based on where the layers' state tensors live. Cached so every
+        per-step branch is a cheap attribute read.
+        """
+        if self._use_cuda is None:
+            on_cuda = any(
+                getattr(layer, 's', None) is not None and layer.s.is_cuda
+                for layer in self.layers.values()
+            )
+            self._use_cuda = bool(_CUDA_INTEROP_AVAILABLE and on_cuda)
+        return self._use_cuda
 
     def migrate(self) -> None:
         ### Migrate all layers and connections to shared buffers ###
+        if not self._resolve_backend():
+            # CPU model: no CUDA<->GL shared buffers. Layer state stays in host tensors
+            # and is uploaded into the history GL buffers per step (see step()). The
+            # per-layer s/v shared buffers are a CUDA-only mechanism unused by the
+            # current renderer anyway, so there is nothing to migrate here.
+            return
         for name in self.layers:
             self.migrate_layer(name)
 
@@ -669,6 +706,15 @@ class GUINetwork(Network):
         if gl.glIsBuffer(vbo) == 0:
             raise RuntimeError("Failed to create spike-history GL buffer")
 
+        if not self._resolve_backend():
+            # CPU model: no CUDA registration. The layer keeps its own `s`; step()
+            # uploads each timestep's spikes into this buffer with glBufferSubData.
+            self._spike_history[layer_name] = {
+                'vbo': vbo, 'T': T, 'n': n, 'batch': batch, 'row': row,
+                'shape': tuple(layer.shape),
+            }
+            return {'vbo': vbo, 'T': T, 'n': n, 'row': row}
+
         ### Register with CUDA, reusing PyTorch's existing context (NONE flag: keep
         ### prior contents -- this is an accumulating history, not WRITE_DISCARD) ###
         self._ensure_cuda_context()
@@ -772,6 +818,23 @@ class GUINetwork(Network):
         if gl.glIsBuffer(vbo) == 0:
             raise RuntimeError("Failed to create voltage-history GL buffer")
 
+        # Running min/max of the recorded voltage, updated each step from the freshly
+        # written row. The voltage widget reads these (via .item()) to size a dynamic
+        # y-axis. Lives on the layer's device -- on the GPU they stay GPU scalars (the
+        # only host sync is the widget's .item()); on the CPU they're host scalars.
+        vmin = torch.full((), float('inf'), dtype=torch.float32, device=layer.v.device)
+        vmax = torch.full((), float('-inf'), dtype=torch.float32, device=layer.v.device)
+
+        if not self._resolve_backend():
+            # CPU model: no CUDA registration. The layer keeps its own (recurrent) `v`;
+            # step() uploads each timestep's voltage into this buffer and folds it into
+            # vmin/vmax on the host.
+            self._voltage_history[layer_name] = {
+                'vbo': vbo, 'T': T, 'n': n, 'batch': batch, 'row': row,
+                'shape': tuple(layer.shape), 'vmin': vmin, 'vmax': vmax,
+            }
+            return {'vbo': vbo, 'T': T, 'n': n, 'row': row, 'vmin': vmin, 'vmax': vmax}
+
         ### Register with CUDA (NONE flag: keep prior contents -- this is an
         ### accumulating history, and rows carry voltage forward, not WRITE_DISCARD) ###
         self._ensure_cuda_context()
@@ -779,12 +842,6 @@ class GUINetwork(Network):
         if err != 0:
             raise RuntimeError(f"cuGraphicsGLRegisterBuffer (voltage) failed: {err}")
 
-        # Running min/max of the recorded voltage (GPU scalars, updated each step
-        # from the freshly-written -- still-mapped -- row in step()). The voltage
-        # widget reads these to size a dynamic y-axis; .item() (a 2-float host sync)
-        # is the only readback, so the value matrix never leaves the GPU.
-        vmin = torch.full((), float('inf'), dtype=torch.float32, device=layer.v.device)
-        vmax = torch.full((), float('-inf'), dtype=torch.float32, device=layer.v.device)
         self._voltage_history[layer_name] = {
             'vbo': vbo, 'res': res, 'T': T, 'n': n, 'batch': batch, 'row': row,
             'shape': tuple(layer.shape),  # per-sample shape, e.g. (n,)
@@ -826,6 +883,23 @@ class GUINetwork(Network):
         back to GL. Safe to call between steps (the timer loop is single-threaded, so
         no step is concurrently holding a map).
         """
+        if not self._resolve_backend():
+            # CPU model: zero each GL buffer with a host upload, reset the running
+            # voltage range, and rewind the step counter.
+            for h in self._spike_history.values():
+                zeros = np.zeros(h['row'] * h['T'], dtype=np.uint8)
+                gl.glBindBuffer(gl.GL_ARRAY_BUFFER, h['vbo'])
+                gl.glBufferSubData(gl.GL_ARRAY_BUFFER, 0, zeros.nbytes, zeros)
+                gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+            for h in self._voltage_history.values():
+                zeros = np.zeros(h['row'] * h['T'], dtype=np.float32)
+                gl.glBindBuffer(gl.GL_ARRAY_BUFFER, h['vbo'])
+                gl.glBufferSubData(gl.GL_ARRAY_BUFFER, 0, zeros.nbytes, zeros)
+                gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+                h['vmin'].fill_(float('inf'))
+                h['vmax'].fill_(float('-inf'))
+            self._step_t = 0
+            return
         for h in self._spike_history.values():
             view = self._map_history(h)
             view.zero_()
@@ -842,10 +916,75 @@ class GUINetwork(Network):
             h['vmax'].fill_(float('-inf'))
         self._step_t = 0
 
+    def _upload_spike_row(self, layer_name: str, t: int) -> None:
+        # CPU path: copy this timestep's spikes from the layer's host tensor into row
+        # `t` of the spike-history GL buffer (R8UI, one byte/spike). Past the capacity
+        # cap there is no row to write, so recording simply stops.
+        h = self._spike_history[layer_name]
+        if t >= h['T']:
+            return
+        row = self.layers[layer_name].s.detach().to(torch.uint8).contiguous() \
+            .view(-1).cpu().numpy()
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, h['vbo'])
+        gl.glBufferSubData(gl.GL_ARRAY_BUFFER, t * h['row'], row.nbytes, row)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+
+    def _upload_voltage_row(self, layer_name: str, t: int) -> None:
+        # CPU path: copy this timestep's voltage into row `t` of the voltage-history
+        # GL buffer (R32F) and fold it into the running min/max (all on the host). The
+        # layer keeps its own recurrent `v`, so v[t] is already computed from v[t-1].
+        h = self._voltage_history[layer_name]
+        v = self.layers[layer_name].v
+        torch.minimum(h['vmin'], v.min(), out=h['vmin'])
+        torch.maximum(h['vmax'], v.max(), out=h['vmax'])
+        if t >= h['T']:
+            return
+        row = v.detach().to(torch.float32).contiguous().view(-1).cpu().numpy()
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, h['vbo'])
+        gl.glBufferSubData(gl.GL_ARRAY_BUFFER, t * h['row'] * 4, row.nbytes, row)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+
+    def _step_cpu(self, input: Dict[str, torch.Tensor], t: int) -> None:
+        # CPU render path: a plain simulation step (the layers keep their own `s`/`v`,
+        # whose values persist across steps -- so _get_inputs() reads last step's
+        # spikes and LIFNodes carries voltage forward, no buffer repointing needed),
+        # followed by a host->GL upload of whatever is being recorded.
+        current_inputs = {}
+        current_inputs.update(self._get_inputs())
+        for l in self.layers:
+            if l in input:
+                if l in current_inputs:
+                    current_inputs[l] += input[l]
+                else:
+                    current_inputs[l] = input[l]
+
+            if l in current_inputs:
+                self.layers[l].forward(x=current_inputs[l])
+            else:
+                self.layers[l].forward(
+                    x=torch.zeros(
+                        self.layers[l].s.shape, device=self.layers[l].s.device
+                    )
+                )
+
+            # Record this timestep into the (host-backed) GL history buffers.
+            if l in self._spike_history:
+                self._upload_spike_row(l, t)
+            if l in self._voltage_history:
+                self._upload_voltage_row(l, t)
+
+        for c in self.connections:
+            self.connections[c].update(reward=1, learning=True)        # TODO: TEMPORARY arguments
+
+        self._step_t = t + 1
+
     def step(self, input: Dict[str, torch.Tensor], t: int = None) -> None:
         ### Simulate network activity for one time step ###
         if t is None:
             t = self._step_t
+
+        if not self._resolve_backend():
+            return self._step_cpu(input, t)
 
         # Map any spike-history buffers and point each layer's `s` at the PREVIOUS
         # timestep's row, so _get_inputs() / connections read last step's spikes
