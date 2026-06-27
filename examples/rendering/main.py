@@ -26,7 +26,8 @@ network = create_model(
   INH_TO_EXC_CONNECTIVITY,
   EXC_TO_INH_CONNECTIVITY,
 )
-app = Application(network, 1400, 900, step_rate=99999999999, draw_fps=DRAW_FPS)
+app = Application(network, 1400, 900, header="BindsNET Network Activity",
+                  step_rate=99999999999, draw_fps=DRAW_FPS)
 inputs = {"I": torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
   RasterPlot(layer_name="EXC_LIF", max_timesteps=500),

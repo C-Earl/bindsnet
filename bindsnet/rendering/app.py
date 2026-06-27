@@ -7,6 +7,7 @@ from bindsnet.network.network import GUINetwork
 
 class Application():
   def __init__(self, network: GUINetwork, width=1400, height=900, title="BindsNET GUI",
+               header: str | None = None,
                step_rate: int | str = 500, draw_fps: float | None = None):
     self.width, self.height = width, height
     self.network = network
@@ -32,7 +33,21 @@ class Application():
       size=(self.width, self.height),
       show=True,
     )
-    self.grid = self.canvas.central_widget.add_grid(margin=10)
+    # Top-level layout: an optional centered title spanning the full width, above
+    # the grid of plotting widgets. When there's no title we still reserve a small
+    # spacer row so the topmost axis tick labels aren't clipped by the canvas edge.
+    self.layout = self.canvas.central_widget.add_grid(margin=0)
+    next_row = 0
+    if header is not None:
+      self.title_label = scene.Label(header, color='white', font_size=20, bold=True)
+      self.title_label.height_max = 48
+      self.layout.add_widget(self.title_label, row=next_row, col=0)
+    else:
+      self.title_label = None
+      self.layout.add_widget(row=next_row, col=0).height_max = 12   # top padding
+    next_row += 1
+
+    self.grid = self.layout.add_grid(row=next_row, col=0, margin=10)
 
     # Migrate network tensors to shared OpenGL buffers
     network.migrate()
