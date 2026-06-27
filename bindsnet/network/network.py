@@ -779,15 +779,22 @@ class GUINetwork(Network):
         if err != 0:
             raise RuntimeError(f"cuGraphicsGLRegisterBuffer (voltage) failed: {err}")
 
+        # Running min/max of the recorded voltage (GPU scalars, updated each step
+        # from the freshly-written -- still-mapped -- row in step()). The voltage
+        # widget reads these to size a dynamic y-axis; .item() (a 2-float host sync)
+        # is the only readback, so the value matrix never leaves the GPU.
+        vmin = torch.full((), float('inf'), dtype=torch.float32, device=layer.v.device)
+        vmax = torch.full((), float('-inf'), dtype=torch.float32, device=layer.v.device)
         self._voltage_history[layer_name] = {
             'vbo': vbo, 'res': res, 'T': T, 'n': n, 'batch': batch, 'row': row,
             'shape': tuple(layer.shape),  # per-sample shape, e.g. (n,)
+            'vmin': vmin, 'vmax': vmax,   # observed voltage range (in-place updated)
             # Scratch v used once t exceeds the (possibly capped) capacity, so the
             # sim's voltage recurrence keeps running -- it just stops recording.
             'scratch': torch.zeros(batch, *layer.shape, dtype=torch.float32,
                                    device=layer.v.device),
         }
-        return {'vbo': vbo, 'T': T, 'n': n, 'row': row}
+        return {'vbo': vbo, 'T': T, 'n': n, 'row': row, 'vmin': vmin, 'vmax': vmax}
 
     def _map_voltage_history(self, h: dict) -> torch.Tensor:
         # Map the GL buffer (CUDA takes ownership so the node can write it) and wrap
@@ -877,6 +884,16 @@ class GUINetwork(Network):
                         self.layers[l].s.shape, device=self.layers[l].s.device
                     )
                 )
+
+            # Fold this step's voltage into the recorded layer's running min/max
+            # while the row is still mapped (forward() just wrote it in place). GPU
+            # reductions only -- no host sync here; the widget syncs when it draws.
+            if l in vviews:
+                h = self._voltage_history[l]
+                if t < h['T']:
+                    row = vviews[l][t]
+                    torch.minimum(h['vmin'], row.min(), out=h['vmin'])
+                    torch.maximum(h['vmax'], row.max(), out=h['vmax'])
 
         for c in self.connections:
             self.connections[c].update(reward=1, learning=True)        # TODO: TEMPORARY arguments

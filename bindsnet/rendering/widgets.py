@@ -5,6 +5,40 @@ import colorsys
 from abc import abstractmethod
 from .visuals import RasterHistory, VoltageHistory, FeatureMatrix
 from vispy.visuals.axis import Ticker
+from vispy.scene.cameras import PanZoomCamera
+from vispy.geometry import Rect
+
+
+class BoundedPanZoomCamera(PanZoomCamera):
+    """PanZoom camera that never zooms or pans past ``limit_rect`` -- the plotted
+    data extent -- so the user can't scroll into the blank region around the data.
+
+    The widget leaves the camera non-interactive while the sim runs (it drives a
+    follow window itself via ``render``) and flips ``interactive`` True once the
+    sim ends, so the completed history can be inspected freely but never beyond
+    the data."""
+
+    def __init__(self, *args, **kwargs):
+        # Set before super().__init__: it assigns self.rect, which hits our setter.
+        self.limit_rect = None     # Rect of the full data extent; set by the widget
+        super().__init__(*args, **kwargs)
+
+    @PanZoomCamera.rect.setter
+    def rect(self, value):
+        if isinstance(value, tuple):
+            rect = Rect(*value)
+        elif isinstance(value, Rect):
+            rect = value
+        else:
+            rect = Rect(value)
+        lim = self.limit_rect
+        if lim is not None:
+            w = min(rect.width, lim.width)        # never wider/taller than the data
+            h = min(rect.height, lim.height)
+            x = min(max(rect.left, lim.left), lim.right - w)     # keep inside bounds
+            y = min(max(rect.bottom, lim.bottom), lim.top - h)
+            rect = Rect(pos=(x, y), size=(w, h))
+        PanZoomCamera.rect.fset(self, rect)
 
 
 class FixedStepTicker(Ticker):
@@ -64,6 +98,11 @@ class AbstractWidget:
     # on draw steps (see Application.draw_fps throttling).
     pass
 
+  def finish(self):
+    # Called once when the simulation completes. Default: nothing to do. Override
+    # for widgets that lock interaction during the run (graph plots).
+    pass
+
 
 # A plotting widget with x and y axis
 class GraphPlotWidget(AbstractWidget):
@@ -73,13 +112,22 @@ class GraphPlotWidget(AbstractWidget):
     self.grid.add_widget(self.y_axis, row=0, col=0).width_max = 95
 
     self.view = self.grid.add_view(row=0, col=1, border_color='white')
-    self.view.camera = 'panzoom'
+    # Bounded camera, locked while the sim runs: render() drives a follow window
+    # and we don't want user zoom fighting that per-draw reset (it makes the axes
+    # glitch). finish() unlocks it once the run is over; limit_rect (set in each
+    # subclass's prime) keeps zoom/pan inside the plotted data.
+    self.view.camera = BoundedPanZoomCamera()
+    self.view.camera.interactive = False
 
     self.x_axis = scene.AxisWidget(orientation='bottom')
     self.grid.add_widget(self.x_axis, row=1, col=1).height_max = 55
 
     if link_x: self.x_axis.link_view(self.view)   # follows camera
     if link_y: self.y_axis.link_view(self.view)
+
+  def finish(self):
+    # Sim done: hand the camera to the user (still bounded by limit_rect).
+    self.view.camera.interactive = True
 
 
 class VoltagePlot(GraphPlotWidget):
@@ -111,8 +159,10 @@ class VoltagePlot(GraphPlotWidget):
     self.neuron_ids = list(neuron_ids)
     self.max_timesteps = max_timesteps   # trailing follow-window width
     self.total_timesteps = None # full history capacity (= runtime), set in prime()
-    self.y_range = y_range
+    self.y_range = y_range      # initial / minimum y extent; grows to fit the data
     self.lines = None
+    self._vmin = None           # GPU scalars: running observed voltage min/max
+    self._vmax = None           # (updated in GUINetwork.step; read on draw)
 
   def prime(self, network, runtime=None):
     self.layer = network.layers[self.layer_name]
@@ -124,6 +174,7 @@ class VoltagePlot(GraphPlotWidget):
     # Allocate the GPU history buffer and route the layer's voltage into it.
     info = network.enable_voltage_history(self.layer_name, runtime)
     self.total_timesteps = info['T']
+    self._vmin, self._vmax = info['vmin'], info['vmax']   # in-place-updated scalars
 
     K = len(self.neuron_ids)
     colors = np.array(
@@ -136,9 +187,11 @@ class VoltagePlot(GraphPlotWidget):
     )
     self.view.add(self.lines)
 
-    # Start showing the first trailing window; absolute-time x means zoom-out
-    # reveals all of history.
+    # Bound zoom/pan to the full plotted extent (all of time x the display range).
     y0, y1 = self.y_range
+    self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
+    # Start showing the first trailing window; absolute-time x means zoom-out
+    # reveals all of history. y grows later as extremes appear (see render).
     self.view.camera.rect = (0, y0, self.max_timesteps, y1 - y0)
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
@@ -148,12 +201,32 @@ class VoltagePlot(GraphPlotWidget):
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
 
+  def _y_extent(self):
+    # Dynamic y range: the configured y_range, grown outward to fit the observed
+    # voltage min/max so traces never clip. .item() is a 2-float host sync (the
+    # only readback); the values themselves never leave the GPU.
+    y0, y1 = self.y_range
+    vmin, vmax = self._vmin.item(), self._vmax.item()
+    if np.isfinite(vmin) and np.isfinite(vmax):
+      pad = 0.02 * max(1.0, vmax - vmin)        # keep extremes off the border
+      y0, y1 = min(y0, vmin - pad), max(y1, vmax + pad)
+    return y0, y1
+
   def render(self, t):
     # The shader reads the buffer live -- just slide the camera to follow the newest
-    # activity; the linked x-axis relabels itself to absolute time.
+    # activity; the linked x-axis relabels itself to absolute time. y expands to the
+    # observed voltage range as the sim runs.
     x0 = max(0, t - self.max_timesteps + 1)
-    y0, y1 = self.y_range
+    y0, y1 = self._y_extent()
+    self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
     self.view.camera.rect = (x0, y0, self.max_timesteps, y1 - y0)
+
+  def finish(self):
+    # Refresh bounds to the final observed extent (the last draw may predate the
+    # final extreme), then hand the camera to the user.
+    y0, y1 = self._y_extent()
+    self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
+    super().finish()
 
 
 class RasterPlot(GraphPlotWidget):
@@ -195,6 +268,8 @@ class RasterPlot(GraphPlotWidget):
         row_stride=info['row'], gl_buffer_id=info['vbo'],
     )
     self.view.add(self.raster)
+    # Bound zoom/pan to the full plotted extent (all of time x all neurons).
+    self.view.camera.limit_rect = Rect(0, 0, self.total_timesteps, self.layer_size)
     # Start showing the first trailing window; absolute-time x means zoom-out
     # reveals all of history.
     self.view.camera.rect = (0, 0, self.max_timesteps, self.layer_size)
@@ -274,7 +349,12 @@ class FeaturePlot(GraphPlotWidget):
       cmap=self.cmap,
     )
     self.view.add(self.visual)
+    # Bound zoom/pan to the matrix extent (target x source neurons).
+    self.view.camera.limit_rect = Rect(0, 0, cols, rows)
     self.view.camera.rect = (0, 0, cols, rows)
+    # Unlike the time-series plots, the heatmap has no follow window fighting the
+    # user, so allow free (bounded) zoom/pan for the whole run.
+    self.view.camera.interactive = True
     self.y_axis.axis.axis_label = self.y_label
     self.x_axis.axis.axis_label = self.x_label
     self._add_colorbar(clim)

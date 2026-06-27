@@ -50,6 +50,10 @@ class Application():
     # Check if runtime is over
     if self.current_time >= self.runtime:
       self.timer.stop()
+      # Hand the (bounded) cameras to the user now that the follow window is done.
+      for widget in self.widgets:
+        widget.finish()
+      self.canvas.update()
       return
 
     # Simulate one timestep in network
