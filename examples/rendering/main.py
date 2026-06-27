@@ -6,7 +6,7 @@ import torch
 SIM_TIME = 1000
 BATCH_SIZE = 1
 DEVICE = "cuda"
-DRAW_FPS = 50          # cap plot redraws; the sim runs as fast as it can between draws
+DRAW_FPS = 30          # cap plot redraws; the sim runs as fast as it can between draws
 
 IN_SIZE = 100
 EXC_SIZE = 20_000
@@ -26,8 +26,17 @@ network = create_model(
   INH_TO_EXC_CONNECTIVITY,
   EXC_TO_INH_CONNECTIVITY,
 )
-app = Application(network, 1400, 900, header="BindsNET Network Activity",
-                  step_rate=99999999999, draw_fps=DRAW_FPS)
+app = Application(network, 2800, 1800, header="BindsNET Network Activity",
+                  step_rate=99999999999, draw_fps=DRAW_FPS,
+                  parameters={
+                    "Input size": IN_SIZE,
+                    "Excitatory size": EXC_SIZE,
+                    "Inhibitory size": INH_SIZE,
+                    "I -> EXC connectivity": I_TO_EXC_CONNECTIVITY,
+                    "I -> INH connectivity": I_TO_INH_CONNECTIVITY,
+                    "INH -> EXC connectivity": INH_TO_EXC_CONNECTIVITY,
+                    "EXC -> INH connectivity": EXC_TO_INH_CONNECTIVITY,
+                  })
 inputs = {"I": torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
   RasterPlot(layer_name="EXC_LIF", max_timesteps=500),

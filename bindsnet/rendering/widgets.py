@@ -98,9 +98,21 @@ class AbstractWidget:
     # on draw steps (see Application.draw_fps throttling).
     pass
 
+  def set_paused(self, paused: bool):
+    # Called by the app on every play<->pause transition. Default: nothing to do.
+    # Override for widgets that lock the camera while running so it can be handed
+    # to the user for zoom/pan while paused (see GraphPlotWidget).
+    pass
+
   def finish(self):
     # Called once when the simulation completes. Default: nothing to do. Override
     # for widgets that lock interaction during the run (graph plots).
+    pass
+
+  def reset(self):
+    # Called by the app when the simulation is reset (network state cleared, time
+    # back to 0). Default: nothing to do. Override to restore the initial camera
+    # view; the underlying GL history buffers are cleared by GUINetwork.reset_history.
     pass
 
 
@@ -124,6 +136,22 @@ class GraphPlotWidget(AbstractWidget):
 
     if link_x: self.x_axis.link_view(self.view)   # follows camera
     if link_y: self.y_axis.link_view(self.view)
+
+    self._initial_rect = None   # starting follow window, captured in each prime()
+
+  def reset(self):
+    # Restore the starting follow window and re-lock the camera; the sim advances
+    # again from t=0 on the next Play/Step (set_paused re-locks too, but reset may
+    # happen after finish() unlocked it).
+    if self._initial_rect is not None:
+      self.view.camera.rect = self._initial_rect
+    self.view.camera.interactive = False
+
+  def set_paused(self, paused: bool):
+    # While paused, hand the (bounded) camera to the user for zoom/pan; while
+    # running, lock it so render()'s per-draw follow window isn't fought by user
+    # input. limit_rect still keeps zoom/pan inside the plotted data.
+    self.view.camera.interactive = paused
 
   def finish(self):
     # Sim done: hand the camera to the user (still bounded by limit_rect).
@@ -192,7 +220,8 @@ class VoltagePlot(GraphPlotWidget):
     self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
     # Start showing the first trailing window; absolute-time x means zoom-out
     # reveals all of history. y grows later as extremes appear (see render).
-    self.view.camera.rect = (0, y0, self.max_timesteps, y1 - y0)
+    self._initial_rect = (0, y0, self.max_timesteps, y1 - y0)
+    self.view.camera.rect = self._initial_rect
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
@@ -272,7 +301,8 @@ class RasterPlot(GraphPlotWidget):
     self.view.camera.limit_rect = Rect(0, 0, self.total_timesteps, self.layer_size)
     # Start showing the first trailing window; absolute-time x means zoom-out
     # reveals all of history.
-    self.view.camera.rect = (0, 0, self.max_timesteps, self.layer_size)
+    self._initial_rect = (0, 0, self.max_timesteps, self.layer_size)
+    self.view.camera.rect = self._initial_rect
     self.y_axis.axis.axis_label = "Neuron"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
@@ -351,7 +381,8 @@ class FeaturePlot(GraphPlotWidget):
     self.view.add(self.visual)
     # Bound zoom/pan to the matrix extent (target x source neurons).
     self.view.camera.limit_rect = Rect(0, 0, cols, rows)
-    self.view.camera.rect = (0, 0, cols, rows)
+    self._initial_rect = (0, 0, cols, rows)
+    self.view.camera.rect = self._initial_rect
     # Unlike the time-series plots, the heatmap has no follow window fighting the
     # user, so allow free (bounded) zoom/pan for the whole run.
     self.view.camera.interactive = True
@@ -369,6 +400,18 @@ class FeaturePlot(GraphPlotWidget):
       label_color='white', border_color='white', border_width=1,
     )
     self.grid.add_widget(self.colorbar, row=0, col=2).width_max = 95
+
+  def set_paused(self, paused: bool):
+    # The heatmap has no follow window fighting the user, so its camera is left
+    # interactive for the whole run (see prime); pausing changes nothing here.
+    pass
+
+  def reset(self):
+    # The heatmap camera stays interactive the whole run (no follow window); just
+    # restore the initial full-matrix view and re-show the (now-cleared) values.
+    if self._initial_rect is not None:
+      self.view.camera.rect = self._initial_rect
+    self.visual.migrate()
 
   def render(self, t):
     if t % self.refresh_every == 0:

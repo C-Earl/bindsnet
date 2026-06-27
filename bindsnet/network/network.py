@@ -817,6 +817,31 @@ class GUINetwork(Network):
         h['view'] = view
         return view
 
+    def reset_history(self) -> None:
+        # language=rst
+        """
+        Zero the spike/voltage history GL buffers and the running voltage min/max,
+        so a reset clears every recorded sample (not just the live state). Maps each
+        buffer with CUDA, zeros it in place via the cached torch view, and hands it
+        back to GL. Safe to call between steps (the timer loop is single-threaded, so
+        no step is concurrently holding a map).
+        """
+        for h in self._spike_history.values():
+            view = self._map_history(h)
+            view.zero_()
+            (err,) = driver.cuGraphicsUnmapResources(1, h['res'], 0)
+            if err != 0:
+                raise RuntimeError(f"unmap spike history (reset) failed: {err}")
+        for h in self._voltage_history.values():
+            view = self._map_voltage_history(h)
+            view.zero_()
+            (err,) = driver.cuGraphicsUnmapResources(1, h['res'], 0)
+            if err != 0:
+                raise RuntimeError(f"unmap voltage history (reset) failed: {err}")
+            h['vmin'].fill_(float('inf'))
+            h['vmax'].fill_(float('-inf'))
+        self._step_t = 0
+
     def step(self, input: Dict[str, torch.Tensor], t: int = None) -> None:
         ### Simulate network activity for one time step ###
         if t is None:
