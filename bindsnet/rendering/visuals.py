@@ -58,13 +58,45 @@ uniform int u_T;        // total timesteps in the buffer
 uniform int u_stride;   // elements per timestep row (= batch*n)
 uniform vec4 u_on;      // spike colour
 uniform vec4 u_off;     // background colour
+
+// Cap on texels sampled per axis per pixel. At moderate zoom a pixel covers a
+// handful of cells and we read them all; at extreme zoom-out we'd cover more
+// than this, so we step (subsample) to bound cost -- some spikes may still be
+// dropped only when one pixel spans >MAXSTEPS cells, far past the buggy regime.
+const int MAXSTEPS = 64;
+
 void main() {
-    int time   = int(floor(v_data.x));
-    int neuron = int(floor(v_data.y));
-    if (time < 0 || time >= u_T || neuron < 0 || neuron >= u_n) discard;
-    int idx = time * u_stride + neuron;          // time-major; batch 0
-    uint s = texelFetch(u_spikes, idx).r;        // 0 or 1
-    gl_FragColor = (s != 0u) ? u_on : u_off;
+    // Data-space size of one screen pixel (axis-aligned ortho -> fwidth is the
+    // per-pixel extent along each data axis). This is the footprint we must
+    // max-reduce over so sparse spikes survive when many cells map to one pixel.
+    vec2 px = fwidth(v_data);
+
+    int t0 = int(floor(v_data.x - 0.5 * px.x));
+    int t1 = int(floor(v_data.x + 0.5 * px.x));
+    int n0 = int(floor(v_data.y - 0.5 * px.y));
+    int n1 = int(floor(v_data.y + 0.5 * px.y));
+
+    t0 = clamp(t0, 0, u_T - 1);
+    t1 = clamp(t1, 0, u_T - 1);
+    n0 = clamp(n0, 0, u_n - 1);
+    n1 = clamp(n1, 0, u_n - 1);
+
+    // Discard pixels whose centre is fully outside the data region.
+    if (v_data.x < 0.0 || v_data.x >= float(u_T) ||
+        v_data.y < 0.0 || v_data.y >= float(u_n)) discard;
+
+    int tstep = max(1, (t1 - t0 + 1 + MAXSTEPS - 1) / MAXSTEPS);
+    int nstep = max(1, (n1 - n0 + 1 + MAXSTEPS - 1) / MAXSTEPS);
+
+    // OR-reduce: any spike in this pixel's footprint lights it up.
+    uint hit = 0u;
+    for (int t = t0; t <= t1; t += tstep) {
+        int row = t * u_stride;                       // time-major; batch 0
+        for (int neuron = n0; neuron <= n1; neuron += nstep) {
+            hit |= texelFetch(u_spikes, row + neuron).r;
+        }
+    }
+    gl_FragColor = (hit != 0u) ? u_on : u_off;
 }
 """
 
