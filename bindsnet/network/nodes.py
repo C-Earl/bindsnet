@@ -504,8 +504,12 @@ class LIFNodes(Nodes):
 
         :param x: Inputs to the layer.
         """
-        # Decay voltages.
-        self.v = self.decay * (self.v - self.rest) + self.rest
+        # Decay voltages -- IN PLACE so `self.v` keeps the same tensor object across
+        # the step (mathematically identical to decay*(v - rest) + rest). The GUI's
+        # zero-copy voltage history (GUINetwork.enable_voltage_history) points
+        # `self.v` at a row of a CUDA/GL buffer before forward(); rebinding here would
+        # discard that buffer and the computed voltage would never reach the plot.
+        self.v.sub_(self.rest).mul_(self.decay).add_(self.rest)
 
         # Integrate inputs.
         x.masked_fill_(self.refrac_count > 0, 0.0)

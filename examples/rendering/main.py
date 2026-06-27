@@ -6,7 +6,7 @@ import torch
 SIM_TIME = 1000
 BATCH_SIZE = 1
 DEVICE = "cuda"
-DRAW_FPS = 40          # cap plot redraws; the sim runs as fast as it can between draws
+DRAW_FPS = 50          # cap plot redraws; the sim runs as fast as it can between draws
 
 IN_SIZE = 100
 EXC_SIZE = 20_000

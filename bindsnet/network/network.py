@@ -529,6 +529,11 @@ class GUINetwork(Network):
         # FULL spike history, (T, batch, n) one byte/spike. Populated lazily by a
         # raster widget via enable_spike_history(); see step() for the write path.
         self._spike_history = {}
+        # Same idea for voltages: (T, batch, n) float32, written IN PLACE by the node
+        # (LIFNodes.forward updates self.v in place), so the voltage a layer computes
+        # lands straight in the GL buffer with no BindsNET->viz copy. Populated by a
+        # voltage widget via enable_voltage_history(); see step() for the write path.
+        self._voltage_history = {}
         self._step_t = 0  # internal timestep counter (used if step() called without t)
 
     def migrate(self) -> None:
@@ -718,6 +723,93 @@ class GUINetwork(Network):
         h['view'] = view
         return view
 
+    def enable_voltage_history(self, layer_name: str, total_timesteps: int) -> dict:
+        # language=rst
+        """
+        Allocate a CUDA-registered GL buffer holding a layer's FULL voltage history
+        and arrange for the node to write each timestep's voltage straight into it.
+
+        Unlike spikes (written via ``torch.ge(..., out=self.s)``), voltage is a
+        recurrent state: ``v[t]`` is computed from ``v[t-1]``. So :meth:`step` seeds
+        row ``t`` with row ``t-1`` (a buffer-internal device copy) and points
+        ``layer.v`` at that row; :class:`LIFNodes` then updates ``v`` *in place*
+        (see ``nodes.py``), so the voltage it computes lands directly in the GL
+        buffer -- no copy of the value out of BindsNET into a viz object. A
+        full-history voltage visual reads it back via ``texelFetch``.
+
+        Layout is time-major ``(T, batch, n)`` float32. ``T`` is clamped so
+        ``batch * n * T`` fits ``GL_MAX_TEXTURE_BUFFER_SIZE``.
+
+        :param layer_name: Name of the layer to record (must already be added).
+        :param total_timesteps: Desired history length (typically the full run).
+        :return: ``{'vbo', 'T', 'n', 'row'}`` for the owning widget/visual.
+        """
+        layer = self.layers[layer_name]
+        n = int(layer.n)
+        batch = int(self.batch_size)
+        row = batch * n                       # floats (=texels) per timestep
+        T = int(total_timesteps)
+
+        # Cap to the driver's texture-buffer limit (in texels; one float == one R32F
+        # texel) so glTexBuffer can address it all.
+        max_texels = int(gl.glGetIntegerv(gl.GL_MAX_TEXTURE_BUFFER_SIZE))
+        if row * T > max_texels:
+            T = max(1, max_texels // row)
+            warnings.warn(
+                f"Voltage history for '{layer_name}' capped to T={T} timesteps "
+                f"({row}*{total_timesteps} floats exceeds GL_MAX_TEXTURE_BUFFER_SIZE="
+                f"{max_texels}). History before the cap will not be retained."
+            )
+
+        nbytes = row * T * 4  # float32
+
+        ### Allocate a GL buffer, zero-initialised so unwritten rows read 0 ###
+        vbo = int(gl.glGenBuffers(1))
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, nbytes,
+                        np.zeros(nbytes, dtype=np.uint8), gl.GL_DYNAMIC_DRAW)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+        if gl.glIsBuffer(vbo) == 0:
+            raise RuntimeError("Failed to create voltage-history GL buffer")
+
+        ### Register with CUDA (NONE flag: keep prior contents -- this is an
+        ### accumulating history, and rows carry voltage forward, not WRITE_DISCARD) ###
+        self._ensure_cuda_context()
+        err, res = driver.cuGraphicsGLRegisterBuffer(buffer=vbo, Flags=0)
+        if err != 0:
+            raise RuntimeError(f"cuGraphicsGLRegisterBuffer (voltage) failed: {err}")
+
+        self._voltage_history[layer_name] = {
+            'vbo': vbo, 'res': res, 'T': T, 'n': n, 'batch': batch, 'row': row,
+            'shape': tuple(layer.shape),  # per-sample shape, e.g. (n,)
+            # Scratch v used once t exceeds the (possibly capped) capacity, so the
+            # sim's voltage recurrence keeps running -- it just stops recording.
+            'scratch': torch.zeros(batch, *layer.shape, dtype=torch.float32,
+                                   device=layer.v.device),
+        }
+        return {'vbo': vbo, 'T': T, 'n': n, 'row': row}
+
+    def _map_voltage_history(self, h: dict) -> torch.Tensor:
+        # Map the GL buffer (CUDA takes ownership so the node can write it) and wrap
+        # it as a (T, batch, *shape) float32 torch view. Caches the wrapped view and
+        # rebuilds only when the mapped pointer actually moves (see _map_history).
+        (err,) = driver.cuGraphicsMapResources(1, h['res'], 0)
+        if err != 0:
+            raise RuntimeError(f"map voltage history failed: {err}")
+        err, ptr, size = driver.cuGraphicsResourceGetMappedPointer(h['res'])
+        if err != 0:
+            raise RuntimeError(f"get mapped pointer (voltage) failed: {err}")
+        if h.get('ptr') == int(ptr) and h.get('view') is not None:
+            return h['view']
+        n_elems = h['row'] * h['T']
+        cp_ptr = cp.cuda.MemoryPointer(
+            cp.cuda.UnownedMemory(int(ptr), size, h['res']), 0)
+        cp_arr = cp.ndarray(n_elems, dtype=cp.float32, memptr=cp_ptr)
+        view = torch.as_tensor(cp_arr).view(h['T'], h['batch'], *h['shape'])
+        h['ptr'] = int(ptr)
+        h['view'] = view
+        return view
+
     def step(self, input: Dict[str, torch.Tensor], t: int = None) -> None:
         ### Simulate network activity for one time step ###
         if t is None:
@@ -738,6 +830,12 @@ class GUINetwork(Network):
             else:
                 self.layers[name].s = h['scratch']
 
+        # Map any voltage-history buffers so the layer's in-place voltage update can
+        # land in the GL buffer (the actual repoint happens just before forward()).
+        vviews = {}
+        for name, h in self._voltage_history.items():
+            vviews[name] = self._map_voltage_history(h)
+
         current_inputs = {}
         current_inputs.update(self._get_inputs())
         for l in self.layers:
@@ -754,6 +852,22 @@ class GUINetwork(Network):
             if l in views:
                 h = self._spike_history[l]
                 self.layers[l].s = views[l][t] if t < h['T'] else h['scratch']
+
+            # Point a recorded layer's `v` at THIS timestep's row, seeded with the
+            # PREVIOUS timestep's voltage (recurrent state carried forward). The node
+            # then updates `v` in place, so the computed voltage lands in the GL
+            # buffer with no copy out of BindsNET. Past the capacity cap, fall back to
+            # scratch (recording stopped) but keep the recurrence alive.
+            if l in vviews:
+                h = self._voltage_history[l]
+                if t < h['T']:
+                    dst = vviews[l][t]
+                    dst.copy_(self.layers[l].v if t == 0 else vviews[l][t - 1])
+                    self.layers[l].v = dst
+                else:
+                    if t == h['T']:
+                        h['scratch'].copy_(vviews[l][h['T'] - 1])
+                    self.layers[l].v = h['scratch']
 
             if l in current_inputs:
                 self.layers[l].forward(x=current_inputs[l])
@@ -772,6 +886,12 @@ class GUINetwork(Network):
             (err,) = driver.cuGraphicsUnmapResources(1, h['res'], 0)
             if err != 0:
                 raise RuntimeError(f"unmap spike history failed: {err}")
+
+        # Same for voltage-history buffers (written in place by the node above).
+        for name, h in self._voltage_history.items():
+            (err,) = driver.cuGraphicsUnmapResources(1, h['res'], 0)
+            if err != 0:
+                raise RuntimeError(f"unmap voltage history failed: {err}")
 
         self._step_t = t + 1
 

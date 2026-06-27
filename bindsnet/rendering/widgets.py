@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import colorsys
 from abc import abstractmethod
-from .visuals import RasterHistory, ScrollLine, FeatureMatrix
+from .visuals import RasterHistory, VoltageHistory, FeatureMatrix
 from vispy.visuals.axis import Ticker
 
 
@@ -83,47 +83,77 @@ class GraphPlotWidget(AbstractWidget):
 
 
 class VoltagePlot(GraphPlotWidget):
+  # language=rst
+  """
+  Full-history, zero-copy voltage traces (x = absolute time, y = voltage).
+
+  The voltage analogue of :class:`RasterPlot`. The layer's voltage is written in
+  place by the node into a CUDA-registered GL buffer covering the WHOLE run (see
+  :meth:`GUINetwork.enable_voltage_history`), and :class:`VoltageHistoryVisual`
+  pulls ``v[t, neuron]`` via ``texelFetch`` in the vertex shader -- no per-frame
+  copy, no ring buffer. During the run the camera follows a trailing window of
+  ``max_timesteps``; once the sim stops, zoom/pan freely to inspect all history
+  back to t=0 (the x-axis is linked to the camera, so labels are real time).
+
+  ``neuron_ids`` selects which of the layer's traces to draw; the full layer
+  voltage is recorded (the node writes its whole ``v`` in place), so any neuron
+  can be displayed.
+  """
+
   def __init__(self,
                layer_name: str,
                neuron_ids: list[int],
                max_timesteps: int = 100,
                y_range: tuple[float, float] = (-80.0, 40.0)):
-    super().__init__(link_x=False)               # x = time, relabeled manually like RasterPlot
+    super().__init__()          # x_axis linked to the camera: absolute-time labels
     self.layer_name = layer_name
-    self.layer = None
+    self.layer = None           # Initialized in prime()
     self.neuron_ids = list(neuron_ids)
-    self.max_timesteps = max_timesteps
+    self.max_timesteps = max_timesteps   # trailing follow-window width
+    self.total_timesteps = None # full history capacity (= runtime), set in prime()
     self.y_range = y_range
     self.lines = None
 
   def prime(self, network, runtime=None):
     self.layer = network.layers[self.layer_name]
+    if runtime is None:
+      raise ValueError(
+        "VoltagePlot needs the total runtime to size its full-history buffer; "
+        "it is supplied by Application.run().")
+
+    # Allocate the GPU history buffer and route the layer's voltage into it.
+    info = network.enable_voltage_history(self.layer_name, runtime)
+    self.total_timesteps = info['T']
+
     K = len(self.neuron_ids)
-    idx = torch.as_tensor(self.neuron_ids, device=self.layer.v.device, dtype=torch.long)
     colors = np.array(
       [[*colorsys.hsv_to_rgb(i / max(K, 1), 0.9, 1.0), 1.0] for i in range(K)],
       dtype=np.float32)
 
-    self.lines = ScrollLine(n_neurons=K, width=self.max_timesteps,
-                            volt_getter=lambda: self.layer.v, idx=idx, colors=colors)
+    self.lines = VoltageHistory(
+        neuron_ids=self.neuron_ids, total_timesteps=info['T'],
+        row_stride=info['row'], gl_buffer_id=info['vbo'], colors=colors,
+    )
     self.view.add(self.lines)
 
+    # Start showing the first trailing window; absolute-time x means zoom-out
+    # reveals all of history.
     y0, y1 = self.y_range
     self.view.camera.rect = (0, y0, self.max_timesteps, y1 - y0)
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
+    # Ticks at constant multiples of `step` so a sliding domain produces smoothly
+    # translating labels instead of relocated "nice" ones (which jitter/swap).
     step = max(1, round(self.max_timesteps / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
 
-  def capture(self, t):
-    # Write this timestep's voltages into the ring EVERY step (no gaps if the draw
-    # is throttled). The draw-time roll/seam/update happens in render().
-    self.lines.capture_voltages(t)
-
   def render(self, t):
-    self.lines.refresh(t)
-    self.x_axis.axis.domain = (t - self.max_timesteps + 1, t)
+    # The shader reads the buffer live -- just slide the camera to follow the newest
+    # activity; the linked x-axis relabels itself to absolute time.
+    x0 = max(0, t - self.max_timesteps + 1)
+    y0, y1 = self.y_range
+    self.view.camera.rect = (x0, y0, self.max_timesteps, y1 - y0)
 
 
 class RasterPlot(GraphPlotWidget):

@@ -5,20 +5,21 @@ from vispy.gloo.context import get_current_canvas
 from cuda.bindings import driver
 import OpenGL.GL as gl
 import logging
-import torch
 import numpy as np
 
 
-class _UnsetUSpikesFilter(logging.Filter):
-  # RasterHistoryVisual deliberately never sets its `u_spikes` samplerBuffer
-  # (gloo has no samplerBuffer support; it defaults to texture unit 0, which we
-  # bind by hand). VisPy's one-time program validation logs that as an "unset
-  # variable" -- drop just that message so it doesn't look like an error.
+class _UnsetSamplerBufferFilter(logging.Filter):
+  # RasterHistoryVisual / VoltageHistoryVisual deliberately never set their
+  # samplerBuffer uniforms (`u_spikes`, `u_volts`): gloo has no samplerBuffer
+  # support, so each defaults to texture unit 0, which we bind by hand. VisPy's
+  # one-time program validation logs that as an "unset variable" -- drop just
+  # those messages so they don't look like errors.
   def filter(self, record):
-    return 'u_spikes' not in record.getMessage()
+    msg = record.getMessage()
+    return 'u_spikes' not in msg and 'u_volts' not in msg
 
 
-logging.getLogger('vispy').addFilter(_UnsetUSpikesFilter())
+logging.getLogger('vispy').addFilter(_UnsetSamplerBufferFilter())
 
 
 def extract_gl_id(gl_object):
@@ -131,169 +132,112 @@ class RasterHistoryVisual(Visual):
 RasterHistory = create_visual_node(RasterHistoryVisual)
 
 
-_SCROLL_VERT = """
-attribute float a_slot;     // 0..W-1, static
-attribute float a_volt;     // voltage, CUDA-written ring buffer
-attribute vec4  a_color;    // per-neuron color, static
-uniform float u_head;       // current write head (wrapped_t)
-uniform float u_width;      // W
+# Full-history, zero-copy voltage traces -- the voltage analogue of
+# RasterHistoryVisual. The layer's voltage is written in place by the node straight
+# into a CUDA-registered GL buffer holding the WHOLE run, (T, batch, n) float32
+# time-major (see GUINetwork.enable_voltage_history). This visual binds that buffer
+# as a TEXTURE_BUFFER (R32F) and the VERTEX shader pulls v[t, neuron] via texelFetch
+# to position each point of each selected neuron's trace. No per-frame copy, no ring
+# buffer/roll/seam: x is absolute time, so zooming out shows all history back to t=0.
+#
+# #version 140: gives texelFetch + samplerBuffer in the vertex stage while still
+# allowing gl_FragColor and the attribute/varying qualifiers vispy emits.
+_VOLT_HIST_VERT = """
+#version 140
+attribute float a_time;     // absolute timestep for this vertex, 0..T-1
+attribute float a_neuron;   // neuron id within the layer (which trace)
+attribute vec4  a_color;    // per-neuron trace colour, static
+uniform samplerBuffer u_volts;   // R32F history buffer; left UNSET -> texture unit 0
+uniform int u_stride;            // floats per timestep row (= batch*n)
 varying vec4 v_color;
 void main() {
-    float xd = mod(a_slot - (u_head + 1.0), u_width);   // newest -> right edge, like the raster roll
-    gl_Position = $transform(vec4(xd, a_volt, 0.0, 1.0));
+    int idx = int(a_time) * u_stride + int(a_neuron);   // time-major; batch 0
+    float v = texelFetch(u_volts, idx).r;
+    gl_Position = $transform(vec4(a_time, v, 0.0, 1.0));
     v_color = a_color;
 }
 """
 
-_SCROLL_FRAG = """
+_VOLT_HIST_FRAG = """
+#version 140
 varying vec4 v_color;
 void main() { gl_FragColor = v_color; }
 """
 
 
-class ScrollLineVisual(Visual):
-  def __init__(self, n_neurons, width, volt_getter, idx, colors):
-    self.n_neurons = n_neurons
-    self.width = width
-    self.volt_getter = volt_getter      # callable -> live layer.v (rebound each step)
-    self._idx = idx                     # torch LongTensor of selected neuron ids (on device)
-    # Reused gather destination so the per-frame index_select doesn't allocate.
-    self._gather_out = torch.empty(n_neurons, dtype=torch.float32, device=idx.device)
-    self._cuda_res = None
-    Visual.__init__(self, vcode=_SCROLL_VERT, fcode=_SCROLL_FRAG)
+class VoltageHistoryVisual(Visual):
+  def __init__(self, neuron_ids, total_timesteps, row_stride, gl_buffer_id, colors):
+    self.ids = [int(i) for i in neuron_ids]
+    self.K = len(self.ids)
+    self.T = int(total_timesteps)
+    self.stride = int(row_stride)            # = batch * n; idx = time*stride + neuron
+    self._gl_buffer_id = int(gl_buffer_id)   # raw GL buffer with the voltage history
+    self._tbo_tex = None                     # GL texture viewing that buffer (lazy)
+    Visual.__init__(self, vcode=_VOLT_HIST_VERT, fcode=_VOLT_HIST_FRAG)
 
-    N = n_neurons * width
-    self._slot_vbo = gloo.VertexBuffer(np.tile(np.arange(width, dtype=np.float32), n_neurons))
-    self._volt_vbo = gloo.VertexBuffer(np.zeros(N, dtype=np.float32))   # the CUDA-written ring
-    self._color_vbo = gloo.VertexBuffer(np.repeat(colors.astype(np.float32), width, axis=0))
-    self.shared_program['a_slot'] = self._slot_vbo
-    self.shared_program['a_volt'] = self._volt_vbo
+    # One vertex per (selected neuron, timestep). The vertex shader pulls the y value
+    # (voltage) from the buffer texture; only the static (time, neuron, colour) live
+    # in attributes. K * T vertices total.
+    times = np.tile(np.arange(self.T, dtype=np.float32), self.K)
+    neurons = np.repeat(np.array(self.ids, dtype=np.float32), self.T)
+    cols = np.repeat(colors.astype(np.float32), self.T, axis=0)
+    self._time_vbo = gloo.VertexBuffer(times)
+    self._neuron_vbo = gloo.VertexBuffer(neurons)
+    self._color_vbo = gloo.VertexBuffer(cols)
+    self.shared_program['a_time'] = self._time_vbo
+    self.shared_program['a_neuron'] = self._neuron_vbo
     self.shared_program['a_color'] = self._color_vbo
-    self.shared_program['u_head'] = 0.0
-    self.shared_program['u_width'] = float(width)
+    self.shared_program['u_stride'] = self.stride
+    # NOTE: u_volts is deliberately never set. gloo has no samplerBuffer support, and
+    # an unset sampler defaults to texture unit 0, which we bind in _prepare_draw.
 
-    self._ibo_cache = {}   # head -> IndexBuffer; each head's seam is static, built once
-    # Build every head's index buffer up front. Each is static (a given head's
-    # seam sits at a fixed slot), so doing all W now turns the former per-frame
-    # _make_index + IndexBuffer cost -- a ~hundreds-of-us stutter for the first W
-    # frames -- into a one-time startup cost; _set_seam is a pure cache hit after.
-    # No extra steady-state memory: the lazy cache already grew to W buffers.
-    self._prebuild_seams()
+    # Static GL_LINES segments joining consecutive timesteps within each neuron's
+    # trace -- the seam-free analogue of ScrollLine's ring index (x is absolute time
+    # now, so there is no wrap/seam). Built once.
+    self._index_buffer = gloo.IndexBuffer(self._make_index())
     self._draw_mode = 'lines'
     self.set_gl_state('translucent', depth_test=False)
 
-  def _make_index(self, head):
-    # ring edges (i, i+1) for every slot EXCEPT the seam at the write head,
-    # tiled per neuron. GL_LINES with shared endpoints draws a continuous trace.
-    W, K = self.width, self.n_neurons
-    i = np.arange(W); i = i[i != head]
-    seg = np.stack([i, (i + 1) % W], axis=1)
-    return (seg[None] + (np.arange(K) * W)[:, None, None]).reshape(-1, 2).astype(np.uint32)
+  def _make_index(self):
+    # Edges (t, t+1) within each neuron's contiguous block of T vertices.
+    T, K = self.T, self.K
+    i = np.arange(T - 1)
+    seg = np.stack([i, i + 1], axis=1)                       # (T-1, 2)
+    return (seg[None] + (np.arange(K) * T)[:, None, None]).reshape(-1, 2).astype(np.uint32)
 
-  def _set_seam(self, head):
-    # The index buffer for a given head never changes (the seam sits at a fixed
-    # slot), and head = t % width only takes W distinct values -- so build each
-    # head's buffer once and just rebind it thereafter. No per-frame NumPy
-    # rebuild or GPU re-upload (the old hot spot). Caches W buffers:
-    # W * K * (W-1) * 2 * 4 bytes; e.g. 100x100 -> ~7.7 MB.
-    ibo = self._ibo_cache.get(head)
-    if ibo is None:
-      ibo = gloo.IndexBuffer(self._make_index(head))
-      self._ibo_cache[head] = ibo
-    self._index_buffer = ibo
+  def _create_tbo(self):
+    # A buffer texture is a 1-D view of the GL buffer as R32F texels. glTexBuffer
+    # only references the buffer (no copy); texelFetch always reads its live floats.
+    tex = gl.glGenTextures(1)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, tex)
+    gl.glTexBuffer(gl.GL_TEXTURE_BUFFER, gl.GL_R32F, self._gl_buffer_id)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, 0)
+    self._tbo_tex = tex
 
-  def _prebuild_seams(self):
-    # Populate _ibo_cache for every possible head so the simulation-time path is
-    # always a cache hit (see __init__). Leaves head 0 bound.
-    for head in range(self.width):
-      self._set_seam(head)
-    self._set_seam(0)
-
-  def _register(self):
-    # The gloo VBO's GL object only exists after the first draw, so register lazily.
-    try:
-      gl_id = extract_gl_id(self._volt_vbo)
-    except (KeyError, AttributeError):
-      return False
-    if not gl_id:
-      return False
-    # Flags=0 (NONE), NOT WRITE_DISCARD: we keep W-1 columns and write only one.
-    err, res = driver.cuGraphicsGLRegisterBuffer(buffer=gl_id, Flags=0)
-    if err != 0:
-      raise RuntimeError(f"cuGraphicsGLRegisterBuffer failed: {err}")
-    self._cuda_res = res
-    return True
-
-  def capture_voltages(self, t):
-    # CHEAP per-step data capture: copy this timestep's voltages into the ring
-    # buffer. Must run EVERY step (else the trace gets gaps), independent of how
-    # often we actually draw. Does NOT call update() -- see refresh().
-    if self._cuda_res is None and not self._register():
-      return  # buffer not on the GPU yet; skip this frame
-
-    wrapped_t = t % self.width
-
-    # gather ONLY the selected neurons, on-device -- no host copy, and no per-frame
-    # allocation (reuse self._gather_out). re-fetch each frame: LIFNodes rebinds
-    # layer.v to a new tensor every step.
-    v = torch.index_select(self.volt_getter().reshape(-1), 0, self._idx, out=self._gather_out)
-
-    res = self._cuda_res
-
-    ### Buffer becomes CUDA-owned ###
-    (err,) = driver.cuGraphicsMapResources(1, res, 0)
-    if err != 0:
-      raise RuntimeError(f"map buffer failed: {err}")
-
-    err, ptr, _ = driver.cuGraphicsResourceGetMappedPointer(res)
-    if err != 0:
-      raise RuntimeError(f"get mapped pointer failed: {err}")
-
-    ### Scatter K voltages into column `wrapped_t` (neuron-major: stride W floats) ###
-    cp = driver.CUDA_MEMCPY2D()
-    cp.srcMemoryType = driver.CUmemorytype.CU_MEMORYTYPE_DEVICE
-    cp.srcDevice = v.data_ptr()
-    cp.srcPitch = 4
-    cp.dstMemoryType = driver.CUmemorytype.CU_MEMORYTYPE_DEVICE
-    cp.dstDevice = int(ptr) + 4 * wrapped_t
-    cp.dstPitch = 4 * self.width
-    cp.WidthInBytes = 4              # one float (y) per neuron
-    cp.Height = self.n_neurons      # one row per selected neuron
-    (err,) = driver.cuMemcpy2D(cp)  # synchronous; `v` stays alive
-    if err != 0:
-      raise RuntimeError(f"cuMemcpy2D failed: {err}")
-
-    ### Hand the buffer back to OpenGL so VisPy can draw ###
-    (err,) = driver.cuGraphicsUnmapResources(1, res, 0)
-    if err != 0:
-      raise RuntimeError(f"unmap buffer failed: {err}")
-
-  def refresh(self, t):
-    # DRAW-time only: point the roll at the newest captured column, break the seam
-    # there, and request a redraw. All captured columns are already in the ring, so
-    # this can run less often than capture without losing data.
-    if self._cuda_res is None:
-      return  # nothing captured yet
-    wrapped_t = t % self.width
-    self.shared_program['u_head'] = float(wrapped_t)
-    self._set_seam(wrapped_t)
-    self.update()
+  def _prepare_draw(self, view):
+    if self._tbo_tex is None:
+      self._create_tbo()
+    # Bind our buffer-texture to unit 0 with an IMMEDIATE raw GL call. gloo flushes
+    # each program's draw at the end of Program.draw(), so this binding persists
+    # through THIS visual's own draw -- u_volts samples unit 0 by default. (The
+    # raster does the same in its own _prepare_draw; per-draw flush keeps them from
+    # colliding even though both target GL_TEXTURE_BUFFER on unit 0.)
+    gl.glActiveTexture(gl.GL_TEXTURE0)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, self._tbo_tex)
 
   def _prepare_transforms(self, view):
     view.view_program.vert['transform'] = view.transforms.get_transform()
 
-  def _prepare_draw(self, view):
-    pass
-
   def _compute_bounds(self, axis, view):
-    return (0, self.width) if axis == 0 else None
+    if axis == 0:
+      return (0, self.T)
+    return None   # y (voltage) bounds are data-dependent; the widget sets the camera
 
-  def __del__(self):
-    if self._cuda_res is not None:
-      driver.cuGraphicsUnregisterResource(self._cuda_res)
+  # No __del__: the buffer texture is freed when the GL context is destroyed (see
+  # the note on RasterHistoryVisual).
 
 
-ScrollLine = create_visual_node(ScrollLineVisual)
+VoltageHistory = create_visual_node(VoltageHistoryVisual)
 
 
 class FeatureMatrixVisual(ImageVisual):
