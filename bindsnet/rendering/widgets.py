@@ -2,11 +2,15 @@ from vispy import scene
 import numpy as np
 import torch
 import colorsys
+import warnings
 from abc import abstractmethod
-from .visuals import RasterHistory, VoltageHistory, FeatureMatrix
+from .visuals import (RasterHistory, VoltageHistory, FeatureMatrix, NeuronCloud,
+                      SynapseLines, CachedSynapseLines)
 from vispy.visuals.axis import Ticker
 from vispy.scene.cameras import PanZoomCamera
 from vispy.geometry import Rect
+from vispy.color import get_colormap
+from bindsnet.network.topology_features import Weight, Mask
 
 
 class BoundedPanZoomCamera(PanZoomCamera):
@@ -455,3 +459,278 @@ class WeightPlot(FeaturePlot):
 
   texture_format = np.float32
   cmap = 'coolwarm'              # diverging: low=blue, 0=white, high=red
+
+
+class NetworkPlot(AbstractWidget):
+  # language=rst
+  """
+  Renders the network *structure* as a node-link diagram: neurons as circles laid
+  out in layered columns (one column per layer), synapses as lines between them,
+  with firing shown live on each neuron.
+
+  Neurons are drawn by one :class:`NeuronCloudVisual` per layer, each reading that
+  layer's spikes zero-copy from the shared spike-history GL buffer (the same buffer
+  a :class:`RasterPlot` on the layer would use; see
+  :meth:`GUINetwork.enable_spike_history`). A spiking neuron lights up and fades over
+  a short ``afterglow`` window so it stays visible across throttled draws.
+
+  Synapses are drawn by a single :class:`SynapseLinesVisual`. Connections are
+  selected once at :meth:`prime` (host-side, off the render path): each masked
+  synapse whose ``|weight| >= weight_threshold`` is a candidate, and if a connection
+  has more than ``max_lines`` candidates the strongest by ``|weight|`` are kept (the
+  cap is reported). Lines are coloured by weight on a diverging map. Recurrent / back
+  edges (target column <= source column) bow outward so they read apart from the
+  forward fan-out. The line-colour buffer is rebuildable
+  (:meth:`SynapseLinesVisual.set_colors`) -- the hook for later weight-change views.
+
+  Performance: the synapse lines are one GL_LINES draw whose cost is ~linear in the
+  total vertex count (profiled at ~24 ms/frame for ~50k segments next to other
+  plots). Two knobs bound it: ``max_lines`` caps each connection, and back-edge curve
+  resolution is scaled down per-connection (``curve_segments`` -> straight) once the
+  edge count is high, since the dominant cost is curved edges. See ``_CURVE_VERT_BUDGET``.
+  """
+
+  # Layout constants (data-space units; the camera auto-fits the result).
+  _ROW_ASPECT = 4.0       # block is ~this many times taller than wide
+  _SPACING = 1.0          # neuron-to-neuron grid spacing within a layer block
+
+  # Synapse lines are redrawn every frame and the draw cost is ~linear in the total
+  # vertex count (one GL_LINES draw, vertex-bound -- profiled: ~50k segments alongside
+  # other plots costs ~24 ms/frame). Curved back-edges are the worst offender (N x
+  # `curve_segments` vertices), so a back-edge connection's curve resolution is scaled
+  # down once it would spend more than this many segment-vertices, collapsing to a
+  # straight line when there are very many edges (where a smooth bow is invisible in
+  # the hairball anyway).
+  _CURVE_VERT_BUDGET = 6000
+
+  def __init__(self,
+               layers: list[str] | None = None,
+               connections: list[tuple[str, str]] | None = None,
+               max_lines: int = 4_000,
+               weight_threshold: float = 0.0,
+               afterglow: int = 8,
+               point_size: float = 9.0,
+               line_alpha: float = 0.25,
+               curve_segments: int = 6):
+    super().__init__()
+    self.layer_names = layers                 # None -> all layers (resolved in prime)
+    self.connection_keys = connections        # None -> all connections
+    self.max_lines = int(max_lines)           # per-connection synapse-line cap
+    self.weight_threshold = float(weight_threshold)
+    self.afterglow = int(afterglow)
+    self.point_size = float(point_size)
+    self.line_alpha = float(line_alpha)
+    self.curve_segments = max(1, int(curve_segments))   # back-edge bow resolution
+
+    self.view = self.grid.add_view(row=0, col=0, border_color='white')
+    self.view.camera = BoundedPanZoomCamera(aspect=1)   # keep circles round
+    self.view.camera.interactive = True
+
+    self._positions = {}      # layer name -> (n, 2) float32 layout positions
+    self._col = {}            # layer name -> column index (for back-edge detection)
+    self.clouds = []          # NeuronCloud visuals (one per layer)
+    self.synapses = None      # single SynapseLines visual
+    self._initial_rect = None
+
+  # --- layout ---------------------------------------------------------------
+  def _layout(self, network):
+    # Place each layer as a vertically-centered grid block, columns left->right in
+    # the network's layer insertion order. Square grid spacing within a block; gap
+    # between blocks scales with the tallest block so columns stay visually distinct.
+    names = self.layer_names or list(network.layers.keys())
+    blocks = {}
+    max_h = 1.0
+    for name in names:
+      n = int(network.layers[name].n)
+      gc = max(1, int(np.ceil(np.sqrt(n / self._ROW_ASPECT))))   # grid columns
+      gr = int(np.ceil(n / gc))                                  # grid rows
+      blocks[name] = (n, gc, gr)
+      max_h = max(max_h, (gr - 1) * self._SPACING)
+
+    gap = max(4.0 * self._SPACING, 0.5 * max_h)
+    x_cursor = 0.0
+    for col, name in enumerate(names):
+      n, gc, gr = blocks[name]
+      idx = np.arange(n)
+      cx = (idx % gc).astype(np.float32) * self._SPACING
+      cy = (idx // gc).astype(np.float32) * self._SPACING
+      cy -= (gr - 1) * self._SPACING / 2.0                       # center vertically
+      pos = np.stack([x_cursor + cx, cy], axis=1).astype(np.float32)
+      self._positions[name] = pos
+      self._col[name] = col
+      x_cursor += (gc - 1) * self._SPACING + gap                 # next column
+    return names
+
+  # --- synapse selection / geometry ----------------------------------------
+  @staticmethod
+  def _find_features(connection):
+    weight = mask = None
+    for f in connection.pipeline:
+      if weight is None and isinstance(f, Weight):
+        weight = f
+      elif mask is None and isinstance(f, Mask):
+        mask = f
+    return weight, mask
+
+  def _select_synapses(self, connection):
+    # Device-side selection (keeps the big matrices on the GPU); only the capped
+    # index/weight set crosses to the host. Returns (src_i, tgt_j, w) numpy arrays.
+    weight, mask = self._find_features(connection)
+    if weight is None:
+      return None
+    W = weight.value
+    if not isinstance(W, torch.Tensor) or W.is_sparse or W.dim() != 2:
+      warnings.warn(f"NetworkPlot: skipping non-dense-2D weight {weight.name}.")
+      return None
+
+    cand = W.abs() >= self.weight_threshold
+    if mask is not None and isinstance(mask.value, torch.Tensor):
+      cand = cand & mask.value.bool()
+    idx = cand.nonzero(as_tuple=False)              # (K, 2): [src_i, tgt_j]
+    K = int(idx.shape[0])
+    if K == 0:
+      return None
+    wvals = W[idx[:, 0], idx[:, 1]]
+    if K > self.max_lines:
+      keep = torch.topk(wvals.abs(), self.max_lines).indices
+      idx, wvals = idx[keep], wvals[keep]
+      warnings.warn(
+        f"NetworkPlot: connection {weight.name} has {K} synapses; drawing the "
+        f"{self.max_lines} strongest by |weight| (raise max_lines to draw more).")
+    return (idx[:, 0].cpu().numpy(), idx[:, 1].cpu().numpy(),
+            wvals.detach().to(torch.float32).cpu().numpy())
+
+  @staticmethod
+  def _curve(p0, p2, segments):
+    # Quadratic-bezier polyline bowed perpendicular to each chord, returned as
+    # consecutive GL_LINES segment pairs. p0/p2: (K, 2). -> verts (K*segments*2, 2).
+    mid = 0.5 * (p0 + p2)
+    d = p2 - p0
+    perp = np.stack([-d[:, 1], d[:, 0]], axis=1)
+    norm = np.linalg.norm(perp, axis=1, keepdims=True)
+    perp = np.divide(perp, norm, out=np.zeros_like(perp), where=norm > 0)
+    p1 = mid + perp * (0.25 * np.linalg.norm(d, axis=1, keepdims=True))
+    ts = np.linspace(0.0, 1.0, segments + 1)
+    a, b, c = (1 - ts) ** 2, 2 * (1 - ts) * ts, ts ** 2
+    pts = (a[None, :, None] * p0[:, None, :]
+           + b[None, :, None] * p1[:, None, :]
+           + c[None, :, None] * p2[:, None, :])          # (K, S+1, 2)
+    seg = np.stack([pts[:, :-1, :], pts[:, 1:, :]], axis=2)   # (K, S, 2, 2)
+    return seg.reshape(-1, 2).astype(np.float32)
+
+  @staticmethod
+  def _straight(p0, p2):
+    verts = np.empty((2 * len(p0), 2), dtype=np.float32)
+    verts[0::2], verts[1::2] = p0, p2
+    return verts
+
+  def _build_synapses(self, network, names, bbox):
+    keys = self.connection_keys or list(network.connections.keys())
+    name_set = set(names)
+    straight, straight_w, curved, curved_w = [], [], [], []
+    for key in keys:
+      src, tgt = key
+      if src not in name_set or tgt not in name_set:
+        continue
+      sel = self._select_synapses(network.connections[key])
+      if sel is None:
+        continue
+      i, j, w = sel
+      p0 = self._positions[src][i]
+      p2 = self._positions[tgt][j]
+      back = self._col[tgt] <= self._col[src]        # recurrent edge -> bow
+      # Curve resolution scaled to the edge count so the per-frame line-draw cost
+      # stays bounded: full `curve_segments` for small connections, fewer as the
+      # count grows, and a straight line (seg=1) once a smooth bow would be lost in
+      # the density anyway. Forward edges are always straight (1 segment).
+      seg = min(self.curve_segments, max(1, self._CURVE_VERT_BUDGET // max(1, len(w)))) \
+          if back else 1
+      if seg <= 1:
+        straight.append(self._straight(p0, p2))
+        straight_w.append(np.repeat(w, 2))
+      else:
+        curved.append(self._curve(p0, p2, seg))
+        curved_w.append(np.repeat(w, seg * 2))
+
+    all_verts = straight + curved
+    all_w = straight_w + curved_w
+    if not all_verts:
+      return
+    verts = np.concatenate(all_verts, axis=0)
+    wv = np.concatenate(all_w, axis=0)
+
+    # Colour by weight on a diverging map, symmetric about 0 so excitatory and
+    # inhibitory read as opposite hues (clim from the selected weights).
+    m = float(np.abs(wv).max()) if wv.size else 1.0
+    m = m if (np.isfinite(m) and m > 0) else 1.0
+    t = np.clip((wv + m) / (2 * m), 0.0, 1.0)
+    colors = get_colormap('coolwarm').map(t).astype(np.float32)   # (V, 4)
+    colors[:, 3] = self.line_alpha
+
+    # Cached: bake the static lines into a texture once; the per-frame draw is then a
+    # single camera-transformed quad (see CachedSynapseLinesVisual).
+    self.synapses = CachedSynapseLines(positions=verts, colors=colors, bbox=bbox)
+    self.view.add(self.synapses)
+
+  # --- AbstractWidget API ---------------------------------------------------
+  def prime(self, network, runtime=None):
+    if runtime is None:
+      raise ValueError(
+        "NetworkPlot needs the total runtime to size its spike-history buffers; "
+        "it is supplied by Application.run().")
+    names = self._layout(network)
+
+    # Data-space bounding box of all neuron positions (lines live within it).
+    allpos = np.concatenate(list(self._positions.values()), axis=0)
+    x0, y0 = allpos.min(axis=0)
+    x1, y1 = allpos.max(axis=0)
+
+    # Synapses first so neurons draw on top of the lines.
+    self._build_synapses(network, names, (x0, y0, x1, y1))
+
+    # One neuron cloud per layer, each bound to that layer's (shared) spike history.
+    K = len(names)
+    for ci, name in enumerate(names):
+      info = network.enable_spike_history(name, runtime)
+      pos = self._positions[name]
+      base = (*colorsys.hsv_to_rgb(ci / max(K, 1), 0.55, 0.85), 1.0)
+      cloud = NeuronCloud(
+        positions=pos, indices=np.arange(len(pos)),
+        total_timesteps=info['T'], row_stride=info['row'], gl_buffer_id=info['vbo'],
+        base_color=base, fire_color=(1.0, 0.95, 0.3, 1.0),
+        point_size=self.point_size, glow=self.afterglow,
+      )
+      self.view.add(cloud)
+      self.clouds.append(cloud)
+
+    # Fit the camera to the whole diagram (with a small margin) and bound zoom/pan.
+    padx = 0.05 * max(1.0, x1 - x0)
+    pady = 0.05 * max(1.0, y1 - y0)
+    rect = (x0 - padx, y0 - pady, (x1 - x0) + 2 * padx, (y1 - y0) + 2 * pady)
+    self.view.camera.limit_rect = Rect(*rect)
+    self._initial_rect = rect
+    self.view.camera.rect = rect
+
+  def capture(self, t):
+    # Spikes are already in the GL history buffer (written in network.step); nothing
+    # to copy here.
+    pass
+
+  def render(self, t):
+    # Re-bake the synapse texture only when stale (first frame / after set_colors);
+    # the static lines are otherwise never redrawn -- the per-frame cost is one quad.
+    # Done here (outside the scene draw) so the nested FBO pass doesn't clobber the
+    # in-flight viewport; make the canvas context current first.
+    if self.synapses is not None and self.synapses.dirty:
+      canvas = self.view.canvas
+      if canvas is not None:
+        canvas.set_current()
+      self.synapses.refresh()
+    for cloud in self.clouds:
+      cloud.set_time(t)
+
+  def reset(self):
+    if self._initial_rect is not None:
+      self.view.camera.rect = self._initial_rect
+    for cloud in self.clouds:
+      cloud.set_time(0)

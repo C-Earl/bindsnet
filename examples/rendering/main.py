@@ -1,16 +1,16 @@
 from bindsnet.rendering.app import Application
-from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot
+from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot, NetworkPlot
 from model import create_model
 import torch
 
 SIM_TIME = 1000
 BATCH_SIZE = 1
-DEVICE = "cuda"
+DEVICE = "cpu"
 DRAW_FPS = 30          # cap plot redraws; the sim runs as fast as it can between draws
 
 IN_SIZE = 100
-EXC_SIZE = 20_000
-INH_SIZE = 2_000
+EXC_SIZE = 2_000
+INH_SIZE = 200
 I_TO_EXC_CONNECTIVITY = 0.15
 I_TO_INH_CONNECTIVITY = 0.05
 INH_TO_EXC_CONNECTIVITY = 0.05
@@ -51,4 +51,10 @@ app.add_widget(
   WeightPlot(source="I", target="EXC_LIF", feature_name="I_to_EXC_weight"),
   row=1, col=0,
 )
+# app.add_widget(
+#   # The network itself: neurons as circles in layered columns (I / EXC / INH),
+#   # synapses as weight-coloured lines (capped per connection), firing shown live.
+#   NetworkPlot(afterglow=10),
+#   row=1, col=1,
+# )
 app.run(inputs=inputs, runtime=SIM_TIME)

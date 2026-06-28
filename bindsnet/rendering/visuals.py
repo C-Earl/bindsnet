@@ -12,14 +12,16 @@ import numpy as np
 
 
 class _UnsetSamplerBufferFilter(logging.Filter):
-  # RasterHistoryVisual / VoltageHistoryVisual deliberately never set their
-  # samplerBuffer uniforms (`u_spikes`, `u_volts`): gloo has no samplerBuffer
-  # support, so each defaults to texture unit 0, which we bind by hand. VisPy's
-  # one-time program validation logs that as an "unset variable" -- drop just
-  # those messages so they don't look like errors.
+  # RasterHistoryVisual / VoltageHistoryVisual / NeuronCloudVisual deliberately
+  # never set their samplerBuffer uniforms (`u_spikes`, `u_volts`, `u_fire`): gloo
+  # has no samplerBuffer support, so each defaults to texture unit 0, which we bind
+  # by hand. VisPy's one-time program validation logs that as an "unset variable"
+  # -- drop just those messages so they don't look like errors.
+  _UNSET = ('u_spikes', 'u_volts', 'u_fire')
+
   def filter(self, record):
     msg = record.getMessage()
-    return 'u_spikes' not in msg and 'u_volts' not in msg
+    return not any(name in msg for name in self._UNSET)
 
 
 logging.getLogger('vispy').addFilter(_UnsetSamplerBufferFilter())
@@ -384,3 +386,326 @@ class FeatureMatrixVisual(ImageVisual):
 
 
 FeatureMatrix = create_visual_node(FeatureMatrixVisual)
+
+
+# Neurons-as-circles, with firing read straight from the spike-history GL buffer.
+# Each neuron is one GL_POINTS vertex placed at a static layout position (a_pos).
+# Firing is pulled zero-copy from the SAME (T, batch, n) R8UI spike-history buffer
+# RasterHistoryVisual reads (see GUINetwork.enable_spike_history): the vertex shader
+# texelFetches this neuron's spike at the current timestep (and a few preceding ones)
+# to compute a fading "glow" intensity, and the fragment shader draws a filled disc
+# coloured between the layer's base colour and the fire colour. No per-frame copy:
+# the owning widget just updates the u_t uniform each draw.
+#
+# #version 140: gives texelFetch + usamplerBuffer while still allowing gl_FragColor
+# and the attribute/varying qualifiers vispy's transform Function emits (vispy
+# rewrites these to in/out to match the version automatically).
+_NEURON_VERT = """
+#version 140
+attribute vec2 a_pos;       // neuron position in DATA coords (static layout)
+attribute float a_index;    // neuron id within the layer (row index into u_fire)
+uniform usamplerBuffer u_fire;  // R8UI spike history; left UNSET -> texture unit 0
+uniform int u_t;            // current timestep
+uniform int u_T;            // total timesteps in the buffer
+uniform int u_stride;       // elements per timestep row (= batch*n)
+uniform int u_glow;         // afterglow window (timesteps); >=1
+uniform float u_pointsize;  // on-screen disc diameter in pixels
+varying float v_intensity;  // 0..1 firing glow -> fragment
+void main() {
+    gl_Position = $transform(vec4(a_pos, 0.0, 1.0));
+    gl_PointSize = u_pointsize;
+
+    // Max spike over [t-u_glow+1, t] with linear falloff, so a spike stays visible
+    // for a few frames even when draws are throttled (batch 0; time-major buffer).
+    int idx = int(a_index);
+    float inten = 0.0;
+    for (int k = 0; k < u_glow; k++) {
+        int tt = u_t - k;
+        if (tt < 0 || tt >= u_T) continue;
+        uint s = texelFetch(u_fire, tt * u_stride + idx).r;
+        if (s != 0u) inten = max(inten, 1.0 - float(k) / float(u_glow));
+    }
+    v_intensity = inten;
+}
+"""
+
+_NEURON_FRAG = """
+#version 140
+varying float v_intensity;
+uniform vec4 u_base;        // resting colour
+uniform vec4 u_fire_color;  // colour at full firing intensity
+void main() {
+    // Round the square point sprite into a disc.
+    vec2 d = gl_PointCoord - vec2(0.5);
+    if (dot(d, d) > 0.25) discard;
+    gl_FragColor = mix(u_base, u_fire_color, v_intensity);
+}
+"""
+
+
+class NeuronCloudVisual(Visual):
+  def __init__(self, positions, indices, total_timesteps, row_stride, gl_buffer_id,
+               base_color=(0.25, 0.25, 0.30, 1.0), fire_color=(1.0, 0.9, 0.2, 1.0),
+               point_size=9.0, glow=8):
+    self.n = int(len(positions))
+    self.T = int(total_timesteps)
+    self.stride = int(row_stride)            # = batch * n; idx = time*stride + neuron
+    self._gl_buffer_id = int(gl_buffer_id)   # raw GL buffer with the spike history
+    self._tbo_tex = None                     # GL texture viewing that buffer (lazy)
+    Visual.__init__(self, vcode=_NEURON_VERT, fcode=_NEURON_FRAG)
+
+    self._pos = np.asarray(positions, dtype=np.float32)
+    self._pos_vbo = gloo.VertexBuffer(self._pos)
+    self._index_vbo = gloo.VertexBuffer(np.asarray(indices, dtype=np.float32))
+    self.shared_program['a_pos'] = self._pos_vbo
+    self.shared_program['a_index'] = self._index_vbo
+    self.shared_program['u_t'] = 0
+    self.shared_program['u_T'] = self.T
+    self.shared_program['u_stride'] = self.stride
+    self.shared_program['u_glow'] = max(1, int(glow))
+    self.shared_program['u_pointsize'] = float(point_size)
+    self.shared_program['u_base'] = base_color
+    self.shared_program['u_fire_color'] = fire_color
+    # NOTE: u_fire is deliberately never set (gloo has no samplerBuffer support); it
+    # defaults to texture unit 0, which we bind by hand in _prepare_draw.
+    self._draw_mode = 'points'
+    self.set_gl_state('translucent', depth_test=False)
+
+  def set_time(self, t):
+    self.shared_program['u_t'] = int(t)
+
+  def _create_tbo(self):
+    # 1-D R8UI view of the spike-history buffer; glTexBuffer references it (no copy).
+    tex = gl.glGenTextures(1)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, tex)
+    gl.glTexBuffer(gl.GL_TEXTURE_BUFFER, gl.GL_R8UI, self._gl_buffer_id)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, 0)
+    self._tbo_tex = tex
+
+  def _prepare_draw(self, view):
+    if self._tbo_tex is None:
+      self._create_tbo()
+    # Round point sprites need program-controlled point size. Enable it here (raw
+    # GL) so gl_PointSize from the vertex shader takes effect; harmless if already on.
+    gl.glEnable(gl.GL_PROGRAM_POINT_SIZE)
+    # Bind our buffer-texture to unit 0 (u_fire samples unit 0 by default). Same
+    # immediate-bind trick RasterHistoryVisual uses; per-program flush keeps it live
+    # through this visual's draw.
+    gl.glActiveTexture(gl.GL_TEXTURE0)
+    gl.glBindTexture(gl.GL_TEXTURE_BUFFER, self._tbo_tex)
+
+  def _prepare_transforms(self, view):
+    view.view_program.vert['transform'] = view.transforms.get_transform()
+
+  def _compute_bounds(self, axis, view):
+    if axis in (0, 1) and self.n:
+      return (float(self._pos[:, axis].min()), float(self._pos[:, axis].max()))
+    return None
+
+  # No __del__: the buffer texture is freed when the GL context is destroyed (see
+  # the note on RasterHistoryVisual).
+
+
+NeuronCloud = create_visual_node(NeuronCloudVisual)
+
+
+# Synapses-as-lines. A single GL_LINES draw covers every selected synapse across all
+# connections: each segment is two vertices in `positions`, coloured per-vertex from
+# the synapse weight (`colors`). Forward edges are one straight segment; recurrent /
+# back edges are pre-tessellated into several short segments along a bowed curve by
+# the owning widget, so they still live in this one flat lines buffer. The colour
+# buffer is rebuildable via set_colors -- the hook for later weight-change rendering.
+_SYNAPSE_VERT = """
+#version 140
+attribute vec2 a_pos;
+attribute vec4 a_color;
+varying vec4 v_color;
+void main() {
+    gl_Position = $transform(vec4(a_pos, 0.0, 1.0));
+    v_color = a_color;
+}
+"""
+
+_SYNAPSE_FRAG = """
+#version 140
+varying vec4 v_color;
+void main() { gl_FragColor = v_color; }
+"""
+
+
+class SynapseLinesVisual(Visual):
+  def __init__(self, positions, colors):
+    Visual.__init__(self, vcode=_SYNAPSE_VERT, fcode=_SYNAPSE_FRAG)
+    self._pos = np.asarray(positions, dtype=np.float32)
+    self._pos_vbo = gloo.VertexBuffer(self._pos)
+    self._color_vbo = gloo.VertexBuffer(np.asarray(colors, dtype=np.float32))
+    self.shared_program['a_pos'] = self._pos_vbo
+    self.shared_program['a_color'] = self._color_vbo
+    self._draw_mode = 'lines'
+    self.set_gl_state('translucent', depth_test=False)
+
+  def set_colors(self, colors):
+    # Goal-3 hook: re-drive per-vertex colour from refreshed weights. `colors` must
+    # match the vertex count established at construction (2 verts per segment).
+    self._color_vbo.set_data(np.asarray(colors, dtype=np.float32))
+    self.update()
+
+  def _prepare_draw(self, view):
+    pass
+
+  def _prepare_transforms(self, view):
+    view.view_program.vert['transform'] = view.transforms.get_transform()
+
+  def _compute_bounds(self, axis, view):
+    if axis in (0, 1) and len(self._pos):
+      return (float(self._pos[:, axis].min()), float(self._pos[:, axis].max()))
+    return None
+
+
+SynapseLines = create_visual_node(SynapseLinesVisual)
+
+
+# Cached synapse lines: the synapse geometry is STATIC, but a single SceneCanvas
+# clears and redraws every visual each frame, so plain SynapseLines re-pays its
+# (vertex-bound) line-draw cost on every frame -- ~24 ms with another plot on the
+# canvas (profiled). This visual draws the lines ONCE into an offscreen texture (an
+# FBO covering the network's data-space bounding box) and then, every frame, draws a
+# single camera-transformed textured quad over that bbox. Because the quad lives in
+# DATA coordinates, the scene camera pans/zooms it exactly like the lines would move,
+# so the expensive line pass NEVER re-runs on camera changes -- only when the colours
+# change (`set_colors`, the goal-3 weight-change hook). Trade-off: the cache is a
+# raster snapshot, so zooming far in shows texture pixelation (raise `max_side` or
+# call `refresh()` for a re-render at the current detail if that matters).
+_CACHED_LINE_VERT = """
+#version 120
+attribute vec2 a_pos;
+attribute vec4 a_color;
+uniform vec2 u_scale;         // 2/(x1-x0), 2/(y1-y0): bbox -> clip, offscreen pass
+uniform vec2 u_offset;        // (x0, y0)
+varying vec4 v_color;
+void main() {
+    // Map the data-space bbox to clip space [-1, 1] directly (no matrix-convention
+    // ambiguity): x0 -> -1, x1 -> +1, likewise y. The FBO viewport then puts x0,y0 at
+    // texel (0, 0), matching the display quad's (0, 0) texcoord at corner (x0, y0).
+    vec2 ndc = (a_pos - u_offset) * u_scale - 1.0;
+    gl_Position = vec4(ndc, 0.0, 1.0);
+    v_color = a_color;
+}
+"""
+
+_CACHED_LINE_FRAG = """
+#version 120
+varying vec4 v_color;
+void main() { gl_FragColor = v_color; }
+"""
+
+# Display quad: a textured rectangle spanning the bbox in data coords, positioned by
+# the scene transform (camera). vispy's default GLSL handles attribute/varying and the
+# $transform Function injection.
+_CACHED_QUAD_VERT = """
+attribute vec2 a_pos;
+attribute vec2 a_tex;
+varying vec2 v_tex;
+void main() {
+    gl_Position = $transform(vec4(a_pos, 0.0, 1.0));
+    v_tex = a_tex;
+}
+"""
+
+_CACHED_QUAD_FRAG = """
+uniform sampler2D u_tex;
+varying vec2 v_tex;
+void main() { gl_FragColor = texture2D(u_tex, v_tex); }
+"""
+
+
+class CachedSynapseLinesVisual(Visual):
+  def __init__(self, positions, colors, bbox, max_side=2048):
+    Visual.__init__(self, vcode=_CACHED_QUAD_VERT, fcode=_CACHED_QUAD_FRAG)
+    x0, y0, x1, y1 = (float(v) for v in bbox)
+    # Guard against a degenerate (zero-area) bbox.
+    if x1 <= x0:
+      x1 = x0 + 1.0
+    if y1 <= y0:
+      y1 = y0 + 1.0
+    self._bbox = (x0, y0, x1, y1)
+
+    # Offscreen resolution: longest side = max_side, other side by aspect.
+    aspect = (x1 - x0) / (y1 - y0)
+    if aspect >= 1.0:
+      W, H = int(max_side), max(16, int(round(max_side / aspect)))
+    else:
+      W, H = max(16, int(round(max_side * aspect)), ), int(max_side)
+    self._W, self._H = int(W), int(H)
+
+    # Offscreen line program (raw gloo; rendered into the FBO in refresh()).
+    self._line_prog = gloo.Program(_CACHED_LINE_VERT, _CACHED_LINE_FRAG)
+    self._line_prog['a_pos'] = gloo.VertexBuffer(np.asarray(positions, dtype=np.float32))
+    self._line_color = gloo.VertexBuffer(np.asarray(colors, dtype=np.float32))
+    self._line_prog['a_color'] = self._line_color
+    self._line_prog['u_scale'] = (2.0 / (x1 - x0), 2.0 / (y1 - y0))
+    self._line_prog['u_offset'] = (x0, y0)
+    self._n_verts = int(len(positions))
+
+    self._tex = None     # FBO colour texture (lazy; needs a GL context)
+    self._fbo = None
+    self.dirty = True    # needs an offscreen render before the quad is meaningful
+
+    # Display quad over the bbox (data coords) with matching texcoords.
+    corners = np.array([[x0, y0], [x1, y0], [x0, y1], [x1, y1]], dtype=np.float32)
+    texco = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=np.float32)
+    self.shared_program['a_pos'] = gloo.VertexBuffer(corners)
+    self.shared_program['a_tex'] = gloo.VertexBuffer(texco)
+    self._draw_mode = 'triangle_strip'
+    self.set_gl_state('translucent', depth_test=False)
+
+  def refresh(self):
+    # Render the (static) lines into the offscreen texture. Cheap to call when clean
+    # via `if visual.dirty: visual.refresh()`; the owning widget gates it. Runs OUTSIDE
+    # the scene draw (from the widget's render()), so the nested FBO pass doesn't
+    # interleave with vispy's per-visual GLIR flush.
+    if self._tex is None:
+      self._tex = gloo.Texture2D(
+        shape=(self._H, self._W, 4), format='rgba', interpolation='linear')
+      self._fbo = gloo.FrameBuffer(color=self._tex)
+      self.shared_program['u_tex'] = self._tex
+
+    with self._fbo:
+      gloo.set_viewport(0, 0, self._W, self._H)
+      gloo.set_state(blend=True, depth_test=False,
+                     blend_func=('src_alpha', 'one_minus_src_alpha'))
+      gloo.clear(color=(0.0, 0.0, 0.0, 0.0))
+      self._line_prog.draw('lines')
+    # FrameBuffer.__exit__ rebinds the default FBO but does NOT restore the viewport,
+    # so reset it to the full canvas; otherwise the next on-screen draw is squashed
+    # into the FBO's (W, H) rect. (Belt-and-suspenders: vispy also resets it per draw.)
+    canvas = getattr(self, 'canvas', None)
+    if canvas is not None:
+      w, h = canvas.physical_size
+      gloo.set_viewport(0, 0, int(w), int(h))
+    self.dirty = False
+
+  def set_colors(self, colors):
+    # Goal-3 hook: re-drive per-vertex colour from refreshed weights, then mark the
+    # cache stale so the next render() re-bakes the texture.
+    self._line_color.set_data(np.asarray(colors, dtype=np.float32))
+    self.dirty = True
+
+  def _prepare_draw(self, view):
+    # If the texture isn't baked yet (first frame before the widget called refresh),
+    # bake it now so the quad has something to sample.
+    if self._tex is None:
+      self.refresh()
+
+  def _prepare_transforms(self, view):
+    view.view_program.vert['transform'] = view.transforms.get_transform()
+
+  def _compute_bounds(self, axis, view):
+    if axis == 0:
+      return (self._bbox[0], self._bbox[2])
+    if axis == 1:
+      return (self._bbox[1], self._bbox[3])
+    return None
+
+
+CachedSynapseLines = create_visual_node(CachedSynapseLinesVisual)

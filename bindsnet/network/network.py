@@ -679,6 +679,13 @@ class GUINetwork(Network):
         :param total_timesteps: Desired history length (typically the full run).
         :return: ``{'vbo', 'T', 'n', 'row'}`` for the owning widget/visual.
         """
+        # Reuse: a layer may be recorded by more than one widget (e.g. a RasterPlot
+        # and a NetworkPlot both showing the same layer's spikes). Allocate the
+        # CUDA/GL buffer once and hand back the existing handle on later calls.
+        if layer_name in self._spike_history:
+            h = self._spike_history[layer_name]
+            return {'vbo': h['vbo'], 'T': h['T'], 'n': h['n'], 'row': h['row']}
+
         layer = self.layers[layer_name]
         n = int(layer.n)
         batch = int(self.batch_size)
@@ -1048,6 +1055,16 @@ class GUINetwork(Network):
                         self.layers[l].s.shape, device=self.layers[l].s.device
                     )
                 )
+
+            # Input.forward REBINDS self.s (`self.s = x`) rather than writing in
+            # place like LIFNodes (torch.ge(out=self.s)), so the spikes never reach
+            # the mapped history row above. Copy them in and repoint so the row holds
+            # this step's input spikes and downstream reads stay on the buffer.
+            if l in views and isinstance(self.layers[l], Input):
+                h = self._spike_history[l]
+                if t < h['T']:
+                    views[l][t].copy_(self.layers[l].s)
+                    self.layers[l].s = views[l][t]
 
             # Fold this step's voltage into the recorded layer's running min/max
             # while the row is still mapped (forward() just wrote it in place). GPU
