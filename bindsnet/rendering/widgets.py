@@ -82,8 +82,29 @@ class FixedStepTicker(Ticker):
 
 
 class AbstractWidget:
-  def __init__(self):
-    self.grid = scene.widgets.Grid()    # Grid to hold widget view and axes (if applicable)
+  # Outer margin (px) around each widget's content, giving every plot a bit of
+  # breathing room on all sides within its grid cell.
+  _MARGIN = 10
+
+  def __init__(self, title: str | None = None):
+    # Grid to hold the widget title, view and axes (if applicable). The margin
+    # pads the widget's content away from its cell edges on all sides.
+    self.grid = scene.widgets.Grid(margin=self._MARGIN)
+    # Explicit title; when None a default is generated from the plotted
+    # component and the widget type (see _default_title / _apply_title).
+    self.title = title
+    self.title_label = None     # created by subclasses that show a title
+
+  def _default_title(self) -> str:
+    # Auto-generated title from the plotted component + widget type. Overridden
+    # per widget; the base falls back to the class name.
+    return type(self).__name__
+
+  def _apply_title(self):
+    # Set the title label text: the explicit `title` if given, else the
+    # generated default. Called once the plotted component is known (prime()).
+    if self.title_label is not None:
+      self.title_label.text = self.title if self.title is not None else self._default_title()
 
   @abstractmethod
   def prime(self, network, runtime):
@@ -122,12 +143,23 @@ class AbstractWidget:
 
 # A plotting widget with x and y axis
 class GraphPlotWidget(AbstractWidget):
-  def __init__(self, link_x=True, link_y=True):
-    super().__init__()
-    self.y_axis = scene.AxisWidget(orientation='left', axis_label_margin=62)
-    self.grid.add_widget(self.y_axis, row=0, col=0).width_max = 95
+  # Number of columns the title spans = the widget's used columns (y-axis + view,
+  # plus a colorbar column for FeaturePlot). Spanning past the used columns would
+  # create an empty stretchy column that steals plot width.
+  _title_col_span = 2
 
-    self.view = self.grid.add_view(row=0, col=1, border_color='white')
+  def __init__(self, link_x=True, link_y=True, title: str | None = None):
+    super().__init__(title=title)
+    # Title centered across the plotting columns, above the axes/view. Text is
+    # filled in by _apply_title() in prime(), once the component is known.
+    self.title_label = scene.Label("", color='white', font_size=12, bold=True)
+    self.title_label.height_max = 26
+    self.grid.add_widget(self.title_label, row=0, col=0, col_span=self._title_col_span)
+
+    self.y_axis = scene.AxisWidget(orientation='left', axis_label_margin=62)
+    self.grid.add_widget(self.y_axis, row=1, col=0).width_max = 95
+
+    self.view = self.grid.add_view(row=1, col=1, border_color='white')
     # Bounded camera, locked while the sim runs: render() drives a follow window
     # and we don't want user zoom fighting that per-draw reset (it makes the axes
     # glitch). finish() unlocks it once the run is over; limit_rect (set in each
@@ -136,7 +168,7 @@ class GraphPlotWidget(AbstractWidget):
     self.view.camera.interactive = False
 
     self.x_axis = scene.AxisWidget(orientation='bottom')
-    self.grid.add_widget(self.x_axis, row=1, col=1).height_max = 55
+    self.grid.add_widget(self.x_axis, row=2, col=1).height_max = 55
 
     if link_x: self.x_axis.link_view(self.view)   # follows camera
     if link_y: self.y_axis.link_view(self.view)
@@ -172,7 +204,7 @@ class VoltagePlot(GraphPlotWidget):
   :meth:`GUINetwork.enable_voltage_history`), and :class:`VoltageHistoryVisual`
   pulls ``v[t, neuron]`` via ``texelFetch`` in the vertex shader -- no per-frame
   copy, no ring buffer. During the run the camera follows a trailing window of
-  ``max_timesteps``; once the sim stops, zoom/pan freely to inspect all history
+  ``window_size``; once the sim stops, zoom/pan freely to inspect all history
   back to t=0 (the x-axis is linked to the camera, so labels are real time).
 
   ``neuron_ids`` selects which of the layer's traces to draw; the full layer
@@ -183,18 +215,22 @@ class VoltagePlot(GraphPlotWidget):
   def __init__(self,
                layer_name: str,
                neuron_ids: list[int],
-               max_timesteps: int = 100,
-               y_range: tuple[float, float] = (-80.0, 40.0)):
-    super().__init__()          # x_axis linked to the camera: absolute-time labels
+               window_size: int = 100,
+               y_range: tuple[float, float] = (-80.0, 40.0),
+               title: str | None = None):
+    super().__init__(title=title)   # x_axis linked to the camera: absolute-time labels
     self.layer_name = layer_name
     self.layer = None           # Initialized in prime()
     self.neuron_ids = list(neuron_ids)
-    self.max_timesteps = max_timesteps   # trailing follow-window width
+    self.window_size = window_size   # trailing follow-window width
     self.total_timesteps = None # full history capacity (= runtime), set in prime()
     self.y_range = y_range      # initial / minimum y extent; grows to fit the data
     self.lines = None
     self._vmin = None           # GPU scalars: running observed voltage min/max
     self._vmax = None           # (updated in GUINetwork.step; read on draw)
+
+  def _default_title(self) -> str:
+    return f"{self.layer_name} — Voltage"
 
   def prime(self, network, runtime=None):
     self.layer = network.layers[self.layer_name]
@@ -224,15 +260,16 @@ class VoltagePlot(GraphPlotWidget):
     self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
     # Start showing the first trailing window; absolute-time x means zoom-out
     # reveals all of history. y grows later as extremes appear (see render).
-    self._initial_rect = (0, y0, self.max_timesteps, y1 - y0)
+    self._initial_rect = (0, y0, self.window_size, y1 - y0)
     self.view.camera.rect = self._initial_rect
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
     # translating labels instead of relocated "nice" ones (which jitter/swap).
-    step = max(1, round(self.max_timesteps / 5 / 100) * 100) or 100
+    step = max(1, round(self.window_size / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
+    self._apply_title()
 
   def _y_extent(self):
     # Dynamic y range: the configured y_range, grown outward to fit the observed
@@ -249,10 +286,10 @@ class VoltagePlot(GraphPlotWidget):
     # The shader reads the buffer live -- just slide the camera to follow the newest
     # activity; the linked x-axis relabels itself to absolute time. y expands to the
     # observed voltage range as the sim runs.
-    x0 = max(0, t - self.max_timesteps + 1)
+    x0 = max(0, t - self.window_size + 1)
     y0, y1 = self._y_extent()
     self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
-    self.view.camera.rect = (x0, y0, self.max_timesteps, y1 - y0)
+    self.view.camera.rect = (x0, y0, self.window_size, y1 - y0)
 
   def finish(self):
     # Refresh bounds to the final observed extent (the last draw may predate the
@@ -271,19 +308,23 @@ class RasterPlot(GraphPlotWidget):
   buffer covering the WHOLE run (see :meth:`GUINetwork.enable_spike_history`),
   and :class:`RasterHistoryVisual` reads it via ``texelFetch`` -- no per-frame
   copy, no ring buffer. During the run the camera follows a trailing window of
-  ``max_timesteps``; once the sim stops, zoom/pan freely to inspect all history
+  ``window_size``; once the sim stops, zoom/pan freely to inspect all history
   back to t=0 (the x-axis is linked to the camera, so labels are real time).
   """
 
   def __init__(self,
                layer_name: str,
-               max_timesteps: int = 100):
-    super().__init__()          # x_axis linked to the camera: absolute-time labels
+               window_size: int = 100,
+               title: str | None = None):
+    super().__init__(title=title)   # x_axis linked to the camera: absolute-time labels
     self.layer_name = layer_name
     self.layer = None           # Initialized in prime()
-    self.max_timesteps = max_timesteps   # trailing follow-window width
+    self.window_size = window_size   # trailing follow-window width
     self.total_timesteps = None # full history capacity (= runtime), set in prime()
     self.raster = None
+
+  def _default_title(self) -> str:
+    return f"{self.layer_name} — Raster"
 
   def prime(self, network, runtime=None):
     self.layer = network.layers[self.layer_name]
@@ -305,21 +346,22 @@ class RasterPlot(GraphPlotWidget):
     self.view.camera.limit_rect = Rect(0, 0, self.total_timesteps, self.layer_size)
     # Start showing the first trailing window; absolute-time x means zoom-out
     # reveals all of history.
-    self._initial_rect = (0, 0, self.max_timesteps, self.layer_size)
+    self._initial_rect = (0, 0, self.window_size, self.layer_size)
     self.view.camera.rect = self._initial_rect
     self.y_axis.axis.axis_label = "Neuron"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
     # translating labels instead of relocated "nice" ones (which jitter/swap).
-    step = max(1, round(self.max_timesteps / 5 / 100) * 100) or 100
+    step = max(1, round(self.window_size / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
+    self._apply_title()
 
   def render(self, t):
     # The shader reads the buffer live -- just slide the camera to follow the newest
     # activity; the linked x-axis relabels itself to absolute time.
-    x0 = max(0, t - self.max_timesteps + 1)
-    self.view.camera.rect = (x0, 0, self.max_timesteps, self.layer_size)
+    x0 = max(0, t - self.window_size + 1)
+    self.view.camera.rect = (x0, 0, self.window_size, self.layer_size)
 
 
 class FeaturePlot(GraphPlotWidget):
@@ -342,6 +384,9 @@ class FeaturePlot(GraphPlotWidget):
   initial values. Pass ``clim=(lo, hi)`` to override.
   """
 
+  # Three columns here: y-axis + view + colorbar, so the title spans all three.
+  _title_col_span = 3
+
   # --- knobs a subclass overrides for its feature ---
   texture_format = np.float32     # GL texture dtype; must match the value tensor's dtype
   cmap = 'viridis'                # vispy colormap name
@@ -349,8 +394,9 @@ class FeaturePlot(GraphPlotWidget):
   y_label = "Source neuron"
 
   def __init__(self, source: str, target: str, feature_name: str,
-               clim: tuple[float, float] | None = None, refresh_every: int = 1):
-    super().__init__()            # heatmap: both axes linked to the panzoom camera
+               clim: tuple[float, float] | None = None, refresh_every: int = 1,
+               title: str | None = None):
+    super().__init__(title=title)  # heatmap: both axes linked to the panzoom camera
     self.source = source          # source layer name (connection key part 1)
     self.target = target          # target layer name (connection key part 2)
     self.feature_name = feature_name
@@ -360,6 +406,9 @@ class FeaturePlot(GraphPlotWidget):
     self.feature = None
     self.visual = None
     self.colorbar = None
+
+  def _default_title(self) -> str:
+    return f"{self.source} → {self.target} — {self.feature_name}"
 
   def prime(self, network, runtime=None):
     self.connection = network.connections[(self.source, self.target)]
@@ -393,6 +442,7 @@ class FeaturePlot(GraphPlotWidget):
     self.y_axis.axis.axis_label = self.y_label
     self.x_axis.axis.axis_label = self.x_label
     self._add_colorbar(clim)
+    self._apply_title()
 
   def _add_colorbar(self, clim):
     # Vertical bar to the right of the view (grid col 2). White text/border: the
@@ -403,7 +453,7 @@ class FeaturePlot(GraphPlotWidget):
       label=self.feature_name, clim=clim,
       label_color='white', border_color='white', border_width=1,
     )
-    self.grid.add_widget(self.colorbar, row=0, col=2).width_max = 95
+    self.grid.add_widget(self.colorbar, row=1, col=2).width_max = 95
 
   def set_paused(self, paused: bool):
     # The heatmap has no follow window fighting the user, so its camera is left
@@ -511,8 +561,9 @@ class NetworkPlot(AbstractWidget):
                afterglow: int = 8,
                point_size: float = 9.0,
                line_alpha: float = 0.25,
-               curve_segments: int = 6):
-    super().__init__()
+               curve_segments: int = 6,
+               title: str | None = None):
+    super().__init__(title=title)
     self.layer_names = layers                 # None -> all layers (resolved in prime)
     self.connection_keys = connections        # None -> all connections
     self.max_lines = int(max_lines)           # per-connection synapse-line cap
@@ -522,7 +573,12 @@ class NetworkPlot(AbstractWidget):
     self.line_alpha = float(line_alpha)
     self.curve_segments = max(1, int(curve_segments))   # back-edge bow resolution
 
-    self.view = self.grid.add_view(row=0, col=0, border_color='white')
+    # Title across the top, with the diagram view below it.
+    self.title_label = scene.Label("", color='white', font_size=12, bold=True)
+    self.title_label.height_max = 26
+    self.grid.add_widget(self.title_label, row=0, col=0)
+
+    self.view = self.grid.add_view(row=1, col=0, border_color='white')
     self.view.camera = BoundedPanZoomCamera(aspect=1)   # keep circles round
     self.view.camera.interactive = True
 
@@ -531,6 +587,9 @@ class NetworkPlot(AbstractWidget):
     self.clouds = []          # NeuronCloud visuals (one per layer)
     self.synapses = None      # single SynapseLines visual
     self._initial_rect = None
+
+  def _default_title(self) -> str:
+    return "Network"
 
   # --- layout ---------------------------------------------------------------
   def _layout(self, network):
@@ -710,6 +769,7 @@ class NetworkPlot(AbstractWidget):
     self.view.camera.limit_rect = Rect(*rect)
     self._initial_rect = rect
     self.view.camera.rect = rect
+    self._apply_title()
 
   def capture(self, t):
     # Spikes are already in the GL history buffer (written in network.step); nothing

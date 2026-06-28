@@ -17,7 +17,8 @@ app.use_app('glfw')
 class Application():
   def __init__(self, network: GUINetwork, width=1400, height=900, title="BindsNET GUI",
                header: str | None = None,
-               step_rate: int | str = 500, draw_fps: float | None = None,
+               max_steps_per_second: int | float | str | None = None,
+               draw_fps: float | None = None,
                parameters: dict | None = None):
     self.width, self.height = width, height
     self.network = network
@@ -28,7 +29,14 @@ class Application():
     self.inputs = None      # Set when run() is called; Inputs into network during runtime
     self.runtime = None     # Set when run() is called; Total runtime of network simulation
     self.current_time = 0   # Current timestep in network; incremented during runtime
-    self.step_rate = 1/step_rate
+
+    # Cap on how many sim steps run per wall-clock second. `inf` (or "inf"/"max")
+    # means "go as fast as possible" -- a 0s timer interval, i.e. one step per tick
+    # with no throttle. Defaults to the draw rate so, out of the box, the sim steps
+    # roughly in lock-step with the redraws (fall back to 60 if neither is set).
+    if max_steps_per_second is None:
+      max_steps_per_second = draw_fps if draw_fps is not None else 60
+    self.max_steps_per_second = self._coerce_sps(max_steps_per_second)
 
     # Decouple the (expensive) full-canvas redraw from the simulation rate: run the
     # sim + cheap per-step data capture (widget.capture) every step, but redraw
@@ -49,6 +57,10 @@ class Application():
     self.step_budget = 0
     self._was_active = None   # last active-state, to fire play<->pause transitions once
 
+    # Rolling measurement of the ACTUAL steps/second, reported to the panel ~2x/sec.
+    self._sps_count = 0       # steps taken since the last measurement window opened
+    self._sps_t0 = None       # perf_counter at the start of the current window
+
     # Initialize VisPy canvas (GLFW) and grid layout for widget rendering.
     self.canvas = scene.SceneCanvas(
       title=title,
@@ -62,14 +74,17 @@ class Application():
     # spacer row so the topmost axis tick labels aren't clipped by the canvas edge.
     self.layout = self.canvas.central_widget.add_grid(margin=0)
     next_row = 0
+    # Top padding above everything, so the header (or the topmost tick labels when
+    # there's no header) isn't flush against the canvas edge.
+    self.layout.add_widget(row=next_row, col=0).height_max = 24
+    next_row += 1
     if header is not None:
       self.title_label = scene.Label(header, color='white', font_size=20, bold=True)
       self.title_label.height_max = 48
       self.layout.add_widget(self.title_label, row=next_row, col=0)
+      next_row += 1
     else:
       self.title_label = None
-      self.layout.add_widget(row=next_row, col=0).height_max = 12   # top padding
-    next_row += 1
 
     self.grid = self.layout.add_grid(row=next_row, col=0, margin=10)
 
@@ -79,6 +94,31 @@ class Application():
     # Build the control surface (a separate Qt window). It calls back into
     # toggle_play/step_once/run_n and reads back via set_time etc.
     self.panel = QtControlPanel(self, parameters=self.parameters)
+
+  # --- steps-per-second rate -------------------------------------------------
+  @staticmethod
+  def _coerce_sps(value: int | float | str) -> float:
+    # Accept a number, or the words "inf"/"max"/"unlimited"/"" for "as fast as
+    # possible". Returns a positive float (possibly math.inf).
+    if isinstance(value, str):
+      if value.strip().lower() in ("", "inf", "max", "unlimited"):
+        return float("inf")
+      value = float(value)
+    value = float(value)
+    if value <= 0:
+      raise ValueError(f"max_steps_per_second must be > 0, got {value}")
+    return value
+
+  @staticmethod
+  def _interval_for(sps: float) -> float:
+    # inf steps/sec -> a 0s timer interval (vispy fires it as fast as it can).
+    return 0.0 if sps == float("inf") else 1.0 / sps
+
+  def set_max_steps_per_second(self, value: int | float | str):
+    # Update the cap live; the running timer's interval is swapped in place.
+    self.max_steps_per_second = self._coerce_sps(value)
+    if hasattr(self, "timer"):
+      self.timer.interval = self._interval_for(self.max_steps_per_second)
 
   def add_widget(self, widget: AbstractWidget, row: int, col: int):
     self.widgets.append(widget)
@@ -111,6 +151,8 @@ class Application():
     self.step_budget = 0
     self._was_active = None
     self._last_draw = None
+    self._sps_count = 0
+    self._sps_t0 = None
     self.current_time = 0
     self.network.reset_state_variables()
     self.network.reset_history()
@@ -133,6 +175,18 @@ class Application():
     self._was_active = active
 
   def step(self, event):
+    # Measure the actual steps/second over a rolling ~0.5s window and report it to
+    # the panel. Done first (before any early return) so idle/finished states settle
+    # back to 0 rather than showing a stale rate.
+    now = time.perf_counter()
+    if self._sps_t0 is None:
+      self._sps_t0 = now
+    elapsed = now - self._sps_t0
+    if elapsed >= 0.5:
+      self.panel.set_steps_per_second(self._sps_count / elapsed)
+      self._sps_count = 0
+      self._sps_t0 = now
+
     # Check if runtime is over
     if self.current_time >= self.runtime:
       self.timer.stop()
@@ -161,6 +215,8 @@ class Application():
     # is complete regardless of how often we draw.
     for widget in self.widgets:
       widget.capture(t)
+
+    self._sps_count += 1   # count actual advancing steps for the rate readout
 
     manual = not self.running              # advancing via Step / Run N, not Play
     if self.step_budget > 0:
@@ -196,7 +252,9 @@ class Application():
       widget.prime(self.network, runtime)
     # Start paused: the timer ticks, but the sim only advances once the user hits
     # Play / Step / Run N (the plot cameras are interactive while idle).
-    self.timer = app.Timer(interval=self.step_rate, connect=self.step, start=True)
+    self.timer = app.Timer(
+      interval=self._interval_for(self.max_steps_per_second), connect=self.step,
+      start=True)
     # A separate ~60 Hz timer pumps the control panel's event loop when it has one
     # (the Qt window); the GLFW loop ticks both timers. The plots are unaffected.
     if self.panel.needs_pump:

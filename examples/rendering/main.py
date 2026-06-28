@@ -5,12 +5,12 @@ import torch
 
 SIM_TIME = 1000
 BATCH_SIZE = 1
-DEVICE = "cpu"
+DEVICE = "cuda"
 DRAW_FPS = 30          # cap plot redraws; the sim runs as fast as it can between draws
 
 IN_SIZE = 100
-EXC_SIZE = 2_000
-INH_SIZE = 200
+EXC_SIZE = 20_000
+INH_SIZE = 2000
 I_TO_EXC_CONNECTIVITY = 0.15
 I_TO_INH_CONNECTIVITY = 0.05
 INH_TO_EXC_CONNECTIVITY = 0.05
@@ -27,7 +27,7 @@ network = create_model(
   EXC_TO_INH_CONNECTIVITY,
 )
 app = Application(network, 2800, 1800, header="BindsNET Network Activity",
-                  step_rate=99999999999, draw_fps=DRAW_FPS,
+                  max_steps_per_second=float("inf"), draw_fps=DRAW_FPS,
                   parameters={
                     "Input size": IN_SIZE,
                     "Excitatory size": EXC_SIZE,
@@ -39,17 +39,25 @@ app = Application(network, 2800, 1800, header="BindsNET Network Activity",
                   })
 inputs = {"I": torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
 app.add_widget(
-  RasterPlot(layer_name="EXC_LIF", max_timesteps=500),
+  RasterPlot(layer_name="EXC_LIF", window_size=500),
   row=0, col=0,
 )
 app.add_widget(
-  VoltagePlot(layer_name="EXC_LIF", neuron_ids=[i for i in range(100)], max_timesteps=500),
+  VoltagePlot(layer_name="EXC_LIF", neuron_ids=[i for i in range(100)], window_size=500),
   row=0, col=1,
+)
+app.add_widget(
+  RasterPlot(layer_name="INH_LIF", window_size=500),
+  row=1, col=0,
+)
+app.add_widget(
+  VoltagePlot(layer_name="INH_LIF", neuron_ids=[i for i in range(100)], window_size=500),
+  row=1, col=1,
 )
 app.add_widget(
   # Heatmap of the I -> EXC weight matrix (source.n=100 rows x target.n=20000 cols)
   WeightPlot(source="I", target="EXC_LIF", feature_name="I_to_EXC_weight"),
-  row=1, col=0,
+  row=2, col=0,
 )
 # app.add_widget(
 #   # The network itself: neurons as circles in layered columns (I / EXC / INH),
