@@ -1,4 +1,6 @@
 from vispy.visuals import ImageVisual, Visual
+from vispy.visuals.text.text import (TextVisual, _VERTEX_SHADER as _TEXT_VERT,
+                                     _FRAGMENT_SHADER as _TEXT_FRAG)
 from vispy.scene.visuals import create_visual_node
 from vispy import gloo
 from vispy.gloo.context import get_current_canvas
@@ -47,10 +49,14 @@ def extract_gl_id(gl_object):
 _RASTER_HIST_VERT = """
 #version 140
 attribute vec2 a_pos;     // quad corner in DATA coords: x=time [0,T], y=neuron [0,n]
+uniform float u_xoff;     // scroll offset (timesteps): shifts the quad LEFT on screen
+                          // under a fixed camera, so the data scrolls without moving
+                          // the camera (no transform cascade). v_data stays ABSOLUTE
+                          // so the fragment shader still texelFetches the right column.
 varying vec2 v_data;      // interpolated data coord -> fragment
 void main() {
     v_data = a_pos;
-    gl_Position = $transform(vec4(a_pos, 0.0, 1.0));
+    gl_Position = $transform(vec4(a_pos.x - u_xoff, a_pos.y, 0.0, 1.0));
 }
 """
 
@@ -126,10 +132,16 @@ class RasterHistoryVisual(Visual):
     self.shared_program['u_stride'] = self.stride
     self.shared_program['u_on'] = on_color
     self.shared_program['u_off'] = off_color
+    self.shared_program['u_xoff'] = 0.0      # no scroll until the widget drives it
     # NOTE: u_spikes is deliberately never set. gloo has no samplerBuffer support,
     # and an unset sampler defaults to texture unit 0, which we bind in _prepare_draw.
     self._draw_mode = 'triangle_strip'
     self.set_gl_state('translucent', depth_test=False)
+
+  def set_x_offset(self, x0):
+    # Scroll the raster under a fixed camera: a single scalar-uniform write (the
+    # cheapest per-draw op) instead of moving the camera or the visual transform.
+    self.shared_program['u_xoff'] = float(x0)
 
   def _create_tbo(self):
     # A buffer texture is a 1-D view of the GL buffer as R8UI texels. glTexBuffer
@@ -186,11 +198,14 @@ attribute float a_neuron;   // neuron id within the layer (which trace)
 attribute vec4  a_color;    // per-neuron trace colour, static
 uniform samplerBuffer u_volts;   // R32F history buffer; left UNSET -> texture unit 0
 uniform int u_stride;            // floats per timestep row (= batch*n)
+uniform float u_xoff;            // scroll offset (timesteps): shifts traces LEFT on
+                                 // screen under a fixed camera. The texelFetch index
+                                 // uses ABSOLUTE a_time, so only the x position moves.
 varying vec4 v_color;
 void main() {
     int idx = int(a_time) * u_stride + int(a_neuron);   // time-major; batch 0
     float v = texelFetch(u_volts, idx).r;
-    gl_Position = $transform(vec4(a_time, v, 0.0, 1.0));
+    gl_Position = $transform(vec4(a_time - u_xoff, v, 0.0, 1.0));
     v_color = a_color;
 }
 """
@@ -225,6 +240,7 @@ class VoltageHistoryVisual(Visual):
     self.shared_program['a_neuron'] = self._neuron_vbo
     self.shared_program['a_color'] = self._color_vbo
     self.shared_program['u_stride'] = self.stride
+    self.shared_program['u_xoff'] = 0.0      # no scroll until the widget drives it
     # NOTE: u_volts is deliberately never set. gloo has no samplerBuffer support, and
     # an unset sampler defaults to texture unit 0, which we bind in _prepare_draw.
 
@@ -234,6 +250,11 @@ class VoltageHistoryVisual(Visual):
     self._index_buffer = gloo.IndexBuffer(self._make_index())
     self._draw_mode = 'lines'
     self.set_gl_state('translucent', depth_test=False)
+
+  def set_x_offset(self, x0):
+    # Scroll the traces under a fixed camera via a single scalar-uniform write (see
+    # RasterHistoryVisual.set_x_offset).
+    self.shared_program['u_xoff'] = float(x0)
 
   def _make_index(self):
     # Edges (t, t+1) within each neuron's contiguous block of T vertices.
@@ -709,3 +730,107 @@ class CachedSynapseLinesVisual(Visual):
 
 
 CachedSynapseLines = create_visual_node(CachedSynapseLinesVisual)
+
+
+# --- Scrolling "oscilloscope" time axis ------------------------------------
+# The plots scroll a trailing time window under a PINNED camera by writing a
+# single shader uniform (u_xoff) instead of moving the camera -- a camera move
+# fires vispy's transform cascade and, for the linked AxisWidget, a per-draw
+# tick/label glyph + VBO re-upload that ~halves steps/s while scrolling (see the
+# render-perf memory). These two visuals are the axis analogue: the tick marks
+# and the tick labels for the WHOLE timeline are built ONCE, then scrolled by the
+# same u_xoff uniform. Per draw the only work is one scalar write each -- no
+# ticker, no set_data, no glyph re-layout -- so the axis costs ~nothing while
+# scrolling. They live in a thin gutter ViewBox below the plot whose camera x
+# range matches the plot's, so a label at absolute time T lines up with data
+# column T above it (both shifted left by u_xoff). The widget shows these only
+# while running; on pause/finish it hides them and shows the normal (dynamic)
+# vispy AxisWidget so zoom/pan inspection still relabels for any range.
+
+# Tick labels that scroll via a uniform. Subclasses vispy's TextVisual and only
+# swaps its vertex shader to subtract u_xoff from the anchor x BEFORE $transform
+# (the glyph quad offset, added after in pixel space, is untouched). Because the
+# anchor positions never change, TextVisual's `_pos_changed` path -- which
+# re-uploads the per-glyph a_pos/a_rotation VBOs -- never runs after the one-time
+# build; only the uniform changes. NOTE: any change to the visual's transform
+# would re-trip `_pos_changed` (TextVisual._prepare_transforms sets it), so the
+# gutter camera must stay pinned -- which it is.
+_SCROLL_TEXT_VERT = _TEXT_VERT.replace(
+    "attribute vec3 a_pos;  // anchor position",
+    "attribute vec3 a_pos;  // anchor position\n"
+    "    uniform float u_xoff;  // scroll offset (timesteps): shifts labels LEFT",
+).replace(
+    "$transform(vec4(a_pos, 1.0))",
+    "$transform(vec4(a_pos.x - u_xoff, a_pos.y, a_pos.z, 1.0))",
+)
+# Fail loud if a vispy upgrade changes the shader out from under the patch.
+assert "u_xoff" in _SCROLL_TEXT_VERT and "a_pos.x - u_xoff" in _SCROLL_TEXT_VERT, \
+    "vispy TextVisual vertex shader changed; update _SCROLL_TEXT_VERT patch"
+
+
+class ScrollingLabelsVisual(TextVisual):
+  _shaders = {'vertex': _SCROLL_TEXT_VERT, 'fragment': _TEXT_FRAG}
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.shared_program['u_xoff'] = 0.0   # no scroll until the widget drives it
+
+  def set_x_offset(self, x0):
+    self.shared_program['u_xoff'] = float(x0)
+
+
+ScrollingLabels = create_visual_node(ScrollingLabelsVisual)
+
+
+# Tick marks + the static axis baseline, one GL_LINES draw, scrolled by u_xoff
+# (the same trick the raster/voltage data uses). Geometry is built once for the
+# whole timeline; only u_xoff changes per draw. Per-vertex colour so the baseline
+# (white, like vispy's axis_color) and the ticks (grey, like vispy's tick_color)
+# draw in a SINGLE call -- matching the stock AxisVisual it stands in for.
+# ($transform is injected by vispy; no #version line, matching the CachedSynapseLines
+# quad which also rides it.)
+_MARKS_VERT = """
+attribute vec2 a_pos;     // (time, gutter_y); gutter_y in [0,1], top (axis line)=1
+attribute vec4 a_color;   // per-vertex colour (white baseline, grey ticks)
+uniform float u_xoff;     // scroll offset (timesteps): shifts marks LEFT on screen
+varying vec4 v_color;
+void main() {
+    gl_Position = $transform(vec4(a_pos.x - u_xoff, a_pos.y, 0.0, 1.0));
+    v_color = a_color;
+}
+"""
+
+_MARKS_FRAG = """
+varying vec4 v_color;
+void main() { gl_FragColor = v_color; }
+"""
+
+
+class ScrollingMarksVisual(Visual):
+  def __init__(self, positions, colors):
+    Visual.__init__(self, vcode=_MARKS_VERT, fcode=_MARKS_FRAG)
+    self._pos = np.asarray(positions, dtype=np.float32)
+    self._pos_vbo = gloo.VertexBuffer(self._pos)
+    self._color_vbo = gloo.VertexBuffer(np.asarray(colors, dtype=np.float32))
+    self.shared_program['a_pos'] = self._pos_vbo
+    self.shared_program['a_color'] = self._color_vbo
+    self.shared_program['u_xoff'] = 0.0
+    self._draw_mode = 'lines'
+    self.set_gl_state('translucent', depth_test=False)
+
+  def set_x_offset(self, x0):
+    self.shared_program['u_xoff'] = float(x0)
+
+  def _prepare_draw(self, view):
+    pass
+
+  def _prepare_transforms(self, view):
+    view.view_program.vert['transform'] = view.transforms.get_transform()
+
+  def _compute_bounds(self, axis, view):
+    if len(self._pos) and axis in (0, 1):
+      return (float(self._pos[:, axis].min()), float(self._pos[:, axis].max()))
+    return None
+
+
+ScrollingMarks = create_visual_node(ScrollingMarksVisual)

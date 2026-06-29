@@ -2,10 +2,12 @@ from vispy import scene
 import numpy as np
 import torch
 import colorsys
+import types
 import warnings
+
 from abc import abstractmethod
 from .visuals import (RasterHistory, VoltageHistory, FeatureMatrix, NeuronCloud,
-                      SynapseLines, CachedSynapseLines)
+                      SynapseLines, CachedSynapseLines, ScrollingLabels, ScrollingMarks)
 from vispy.visuals.axis import Ticker
 from vispy.scene.cameras import PanZoomCamera
 from vispy.geometry import Rect
@@ -79,6 +81,61 @@ class FixedStepTicker(Ticker):
             major_frac = 1 - major_frac
             minor_frac = 1 - minor_frac if minor.size else minor_frac
         return major_frac, minor_frac, labels
+
+
+def _sliding_update_subvisuals(self):
+    # Drop-in for vispy AxisVisual._update_subvisuals that avoids rebuilding the
+    # tick-label glyphs when nothing about them changed. The stock version reassigns
+    # `_text.text`, `_text.anchors` and the axis-label text on EVERY domain change;
+    # each of those setters nulls TextVisual._vertices, forcing a full SDF glyph
+    # re-layout (_text_to_vbo + new VertexBuffer) on the next draw. While a plot's
+    # follow window scrolls, the domain changes every draw, so that re-layout ran
+    # every frame and ~halved steps/s (see _make_axis_labels_slide). With a
+    # FixedStepTicker the visible label strings are stable for many frames -- only
+    # their positions slide -- so we cache strings/anchors and touch the
+    # glyph-rebuilding setters only when they actually change. Positions are a cheap
+    # attribute re-upload, so they are always refreshed.
+    tick_pos, labels, tick_label_pos, anchors, axis_label_pos = self.ticker.get_update()
+    # The axis line is static (self.pos only changes on resize), but the stock update
+    # re-uploads its VBO every call -- pointless every draw while scrolling. Upload it
+    # only when it actually changes.
+    if not np.array_equal(self.pos, self._cached_line_pos):
+        self._line.set_data(pos=self.pos, color=self.axis_color)
+        self._cached_line_pos = np.array(self.pos)
+    self._ticks.set_data(pos=tick_pos, color=self.tick_color)
+
+    labels = list(labels)
+    if labels != self._cached_labels:
+        self._text.text = labels            # strings changed -> rebuild glyphs
+        self._cached_labels = labels
+    # The base Ticker returns a fresh-but-equal anchors list each call; assigning it
+    # blindly would null the vertex buffer too, so only set it when it really differs.
+    if list(anchors) != list(self._text.anchors):
+        self._text.anchors = anchors
+    self._text.pos = tick_label_pos         # cheap: just slide label positions
+
+    if self.axis_label is not None:
+        if self.axis_label != self._cached_axis_label:
+            self._axis_label_vis.text = self.axis_label
+            self._cached_axis_label = self.axis_label
+        self._axis_label_vis.pos = axis_label_pos
+    self._need_update = False
+
+
+def _make_axis_labels_slide(axis_widget):
+    # Patch a linked AxisWidget's AxisVisual so a sliding domain stops triggering a
+    # per-draw glyph re-layout (see _sliding_update_subvisuals). Instance-level
+    # override: the bound method shadows the class method vispy calls from
+    # _prepare_draw. The seed values guarantee the first update sets text/labels once.
+    axis = axis_widget.axis
+    # AxisVisual is a Frozen vispy object (rejects new attributes); open it to attach
+    # our caches + the override, then re-freeze so typo-guarding still holds elsewhere.
+    axis.unfreeze()
+    axis._cached_labels = None
+    axis._cached_axis_label = None
+    axis._cached_line_pos = None
+    axis._update_subvisuals = types.MethodType(_sliding_update_subvisuals, axis)
+    axis.freeze()
 
 
 class AbstractWidget:
@@ -170,27 +227,188 @@ class GraphPlotWidget(AbstractWidget):
     self.x_axis = scene.AxisWidget(orientation='bottom')
     self.grid.add_widget(self.x_axis, row=2, col=1).height_max = 55
 
-    if link_x: self.x_axis.link_view(self.view)   # follows camera
+    if link_x: self.x_axis.link_view(self.view)   # follows camera (inspect-mode labels)
     if link_y: self.y_axis.link_view(self.view)
 
+    # The follow window slides the x-axis domain every draw; stop that from
+    # re-laying-out the tick-label glyphs each frame (it otherwise ~halves steps/s).
+    # Harmless on the y-axis, whose domain rarely changes.
+    _make_axis_labels_slide(self.x_axis)
+    _make_axis_labels_slide(self.y_axis)
+
     self._initial_rect = None   # starting follow window, captured in each prime()
+
+    # --- Fixed-camera "oscilloscope" scrolling -------------------------------
+    # Moving the camera every frame to follow the newest data fires the vispy
+    # transform cascade (recompute scene transform + re-layout BOTH linked axes +
+    # re-resolve every visual) -- measured to ~halve steps/s the moment scrolling
+    # begins (132 -> 89 on the 20k demo). Instead we PIN the camera and scroll the
+    # data underneath it by writing a single shader uniform (set_x_offset): no camera
+    # move, so NO cascade (frozen-camera diagnostic held 132 -> 132). The vispy x-axis
+    # is hidden while scrolling and the gutter axis below scrolls with the data, so
+    # labels stay on absolute time. Subclasses opt in by setting `_scroll_node` (the
+    # visual to scroll) in prime.
+    self._scroll_node = None    # the Visual we scroll via set_x_offset; set in prime()
+    self._scrolling = False     # True while in fixed-camera scroll mode
+    self._abs_rect = None       # last trailing window in ABSOLUTE coords (for inspect)
+    self._last_x0 = None        # last applied scroll offset; skip redundant updates
+
+    # Oscilloscope x-axis: a thin gutter ViewBox co-located with the vispy x-axis
+    # (same grid cell -> same pixel x-extent, so labels line up with the data above).
+    # Its ticks + labels are built once for the whole timeline and scrolled by the
+    # same u_xoff uniform as the data (one scalar write/draw, no glyph re-layout).
+    # Shown only while scrolling; on pause/finish we hide it and show the vispy
+    # x-axis, whose dynamic ticker relabels for any zoom/pan during inspection.
+    # None for non-scrolling widgets (heatmaps), which never build it.
+    self.x_scroll_view = None
+    self.x_scroll_marks = None
+    self.x_scroll_labels = None
+
+  def _init_scroll(self, node):
+    # Called from a subclass prime() once its scrolling visual exists.
+    self._scroll_node = node
+    self._scroll_node.set_x_offset(0)
+    self._scrolling = False
+    self._last_x0 = None
+    self._abs_rect = self._initial_rect
+
+  def _build_scroll_axis(self, step):
+    # Build the oscilloscope x-axis once: tick marks + labels for the WHOLE timeline
+    # at constant `step`, in a gutter ViewBox co-located with the vispy x-axis. The
+    # gutter camera's x range matches the plot's pinned window, so a label at absolute
+    # time T sits exactly under data column T; both are shifted left by the same
+    # u_xoff each draw.
+    T = int(self.total_timesteps)
+    W = float(self.window_size)
+    step = float(step)
+
+    # The gutter is pinned to EXACTLY the same pixel height as the vispy x-axis it
+    # stands in for (height_max=55 in __init__), so the geometry below -- expressed
+    # as fractions of that height -- lands on the same pixels the stock AxisVisual
+    # would draw. Forcing min==max==H makes the row that height regardless of layout
+    # pressure, so the fractions stay exact (and the camera maps data-y in [0,1] to
+    # this height with no margin -- an explicitly-set PanZoomCamera.rect fills the
+    # viewbox). x is unconstrained: the camera maps time -> width at any window size.
+    H = 55.0
+    self.x_scroll_view = scene.ViewBox(border_color=None)
+    self.x_scroll_view.camera = PanZoomCamera(rect=Rect(0, 0, W, 1))
+    self.x_scroll_view.camera.interactive = False
+    cell = self.grid.add_widget(self.x_scroll_view, row=2, col=1)
+    cell.height_min = cell.height_max = H
+
+    majors = np.arange(0.0, T + 0.5 * step, step)
+    mstep = step / 5.0          # 4 minor ticks per major, like FixedStepTicker
+    minor = np.array([m + k * mstep for m in majors for k in (1, 2, 3, 4)
+                      if m + k * mstep <= T], dtype=np.float32)
+
+    # Match vispy AxisVisual's exact pixel metrics so the gutter is indistinguishable
+    # from the stock x-axis when scroll<->pause swaps them: line at the TOP edge
+    # (data-y=1, adjacent to the plot), major ticks hang 10 px down, minor ticks 5 px,
+    # number labels anchored (center, top) at major_tick_length + tick_label_margin =
+    # 10 + 12 = 22 px below the line. As fractions of the H px gutter: 1 - px/H.
+    major_y = 1.0 - 10.0 / H
+    minor_y = 1.0 - 5.0 / H
+    label_y = 1.0 - 22.0 / H
+    white = (1.0, 1.0, 1.0, 1.0)   # vispy axis_color (the baseline)
+    grey = (0.7, 0.7, 0.7, 1.0)    # vispy tick_color (the ticks)
+
+    # GL_LINES in gutter data space. The baseline spans the whole timeline so it
+    # always covers the window after the u_xoff shift. Per-vertex colour: white
+    # baseline + grey ticks in one draw (see ScrollingMarksVisual).
+    segs = [[[0.0, 1.0], [float(T), 1.0]]]                          # axis baseline
+    cols = [white, white]
+    for m in majors:
+      segs.append([[float(m), 1.0], [float(m), major_y]])          # major ticks
+      cols += [grey, grey]
+    for m in minor:
+      segs.append([[float(m), 1.0], [float(m), minor_y]])          # minor ticks
+      cols += [grey, grey]
+    positions = np.array(segs, dtype=np.float32).reshape(-1, 2)
+    colors = np.array(cols, dtype=np.float32)
+    self.x_scroll_marks = ScrollingMarks(positions=positions, colors=colors)
+    self.x_scroll_view.add(self.x_scroll_marks)
+
+    # Number labels: one TextVisual for the whole timeline, scrolled by u_xoff.
+    labels = ['%g' % m for m in majors]
+    lpos = np.column_stack([majors, np.full(len(majors), label_y)]).astype(np.float32)
+    self.x_scroll_labels = ScrollingLabels(
+      text=labels, pos=lpos, color='white', font_size=8,
+      anchor_x='center', anchor_y='top')
+    self.x_scroll_view.add(self.x_scroll_labels)
+
+    self.x_scroll_view.visible = False   # shown only while scrolling
+
+  def _enter_scroll_mode(self):
+    # Pin the camera (x at 0, current y kept) and swap the gutter axis in for the
+    # vispy x-axis: hiding the vispy axis stops its per-draw tick/label upload, and
+    # the gutter scrolls by a single uniform instead.
+    if self._scroll_node is None or self._scrolling:
+      return
+    self.view.camera.interactive = False
+    cur = self.view.camera.rect
+    self.view.camera.rect = (0, cur.bottom, self.window_size, cur.height)
+    self.x_axis.visible = False
+    self.x_scroll_view.visible = True
+    self._scrolling = True
+    self._last_x0 = None   # force the next _scroll_to to apply
+
+  def _exit_scroll_mode(self):
+    # Flip back to ABSOLUTE coords + the dynamic vispy x-axis so paused/finished
+    # zoom-pan over the full history relabels for any range.
+    if self._scroll_node is None or not self._scrolling:
+      return
+    self._scroll_node.set_x_offset(0)
+    self.x_scroll_marks.set_x_offset(0)
+    self.x_scroll_labels.set_x_offset(0)
+    self.x_scroll_view.visible = False
+    self.x_axis.visible = True                 # show the dynamic axis for inspection
+    if self._abs_rect is not None:
+      # Reveal the same window in absolute coords; with the x-axis now visible and
+      # still camera-linked, this rect change relabels it to the absolute window.
+      self.view.camera.rect = self._abs_rect
+    self._scrolling = False
+
+  def _scroll_to(self, x0):
+    # Slide the data and the gutter axis so absolute column x0 sits at the left edge
+    # of the pinned window. No camera move -> no transform cascade. Skip when x0 is
+    # unchanged (e.g. the whole pre-scroll phase where x0 stays 0) -- the uniform
+    # setters don't short-circuit on equal values.
+    if not self._scrolling:
+      self._enter_scroll_mode()
+    if x0 == self._last_x0:
+      return
+    self._last_x0 = x0
+    self._scroll_node.set_x_offset(x0)
+    self.x_scroll_marks.set_x_offset(x0)       # one scalar write each -> ~free
+    self.x_scroll_labels.set_x_offset(x0)
 
   def reset(self):
     # Restore the starting follow window and re-lock the camera; the sim advances
     # again from t=0 on the next Play/Step (set_paused re-locks too, but reset may
     # happen after finish() unlocked it).
+    self._exit_scroll_mode()
+    self._last_x0 = None
+    if self._scroll_node is not None:
+      self._scroll_node.set_x_offset(0)
+      self.x_scroll_marks.set_x_offset(0)
+      self.x_scroll_labels.set_x_offset(0)
     if self._initial_rect is not None:
+      self._abs_rect = self._initial_rect
       self.view.camera.rect = self._initial_rect
     self.view.camera.interactive = False
 
   def set_paused(self, paused: bool):
-    # While paused, hand the (bounded) camera to the user for zoom/pan; while
-    # running, lock it so render()'s per-draw follow window isn't fought by user
-    # input. limit_rect still keeps zoom/pan inside the plotted data.
+    # While paused, hand the (bounded) camera to the user for zoom/pan over the full
+    # absolute-time history; while running, scroll under a pinned camera. limit_rect
+    # still keeps zoom/pan inside the plotted data.
+    if paused:
+      self._exit_scroll_mode()
     self.view.camera.interactive = paused
 
   def finish(self):
-    # Sim done: hand the camera to the user (still bounded by limit_rect).
+    # Sim done: flip to absolute coords and hand the camera to the user (still
+    # bounded by limit_rect).
+    self._exit_scroll_mode()
     self.view.camera.interactive = True
 
 
@@ -262,6 +480,8 @@ class VoltagePlot(GraphPlotWidget):
     # reveals all of history. y grows later as extremes appear (see render).
     self._initial_rect = (0, y0, self.window_size, y1 - y0)
     self.view.camera.rect = self._initial_rect
+    # Scroll the traces under a pinned camera instead of panning the camera.
+    self._init_scroll(self.lines)
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
@@ -269,27 +489,47 @@ class VoltagePlot(GraphPlotWidget):
     step = max(1, round(self.window_size / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
+    self._build_scroll_axis(step)
+    self._last_y_extent = None   # last (y0, y1) pushed to the camera; skip if unchanged
     self._apply_title()
 
   def _y_extent(self):
     # Dynamic y range: the configured y_range, grown outward to fit the observed
     # voltage min/max so traces never clip. .item() is a 2-float host sync (the
-    # only readback); the values themselves never leave the GPU.
+    # only readback); the values themselves never leave the GPU. Quantized to a grid
+    # so tiny per-step jitter in the running min/max doesn't nudge the camera every
+    # frame -- each nudge moves the camera, which fires the transform cascade and a
+    # y-axis re-layout. With the running extremes (which saturate within a few steps)
+    # this means the camera/y-axis update only on a genuine range change.
     y0, y1 = self.y_range
     vmin, vmax = self._vmin.item(), self._vmax.item()
     if np.isfinite(vmin) and np.isfinite(vmax):
       pad = 0.02 * max(1.0, vmax - vmin)        # keep extremes off the border
       y0, y1 = min(y0, vmin - pad), max(y1, vmax + pad)
-    return y0, y1
+    q = 5.0
+    return float(np.floor(y0 / q) * q), float(np.ceil(y1 / q) * q)
 
   def render(self, t):
-    # The shader reads the buffer live -- just slide the camera to follow the newest
-    # activity; the linked x-axis relabels itself to absolute time. y expands to the
-    # observed voltage range as the sim runs.
+    # The shader reads the buffer live. Scroll the traces under a pinned camera via a
+    # uniform (no transform cascade); the gutter x-axis scrolls the same way. The
+    # camera's x stays pinned -- only y tracks the observed voltage range, and only
+    # when the quantized extent actually changes (otherwise the camera never moves,
+    # so neither it nor the y-axis does any work). See _y_extent.
     x0 = max(0, t - self.window_size + 1)
+    self._scroll_to(x0)
     y0, y1 = self._y_extent()
-    self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
-    self.view.camera.rect = (x0, y0, self.window_size, y1 - y0)
+    if (y0, y1) != self._last_y_extent:
+      self._last_y_extent = (y0, y1)
+      self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
+      self.view.camera.rect = (0, y0, self.window_size, y1 - y0)
+    self._abs_rect = (x0, y0, self.window_size, y1 - y0)
+
+  def reset(self):
+    # The running voltage extremes are cleared on reset; forget the last pushed
+    # y-extent so render() re-fits the camera from t=0 instead of keeping the old
+    # (saturated) range.
+    self._last_y_extent = None
+    super().reset()
 
   def finish(self):
     # Refresh bounds to the final observed extent (the last draw may predate the
@@ -348,6 +588,8 @@ class RasterPlot(GraphPlotWidget):
     # reveals all of history.
     self._initial_rect = (0, 0, self.window_size, self.layer_size)
     self.view.camera.rect = self._initial_rect
+    # Scroll the raster under a pinned camera instead of panning the camera.
+    self._init_scroll(self.raster)
     self.y_axis.axis.axis_label = "Neuron"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
@@ -355,13 +597,16 @@ class RasterPlot(GraphPlotWidget):
     step = max(1, round(self.window_size / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
+    self._build_scroll_axis(step)
     self._apply_title()
 
   def render(self, t):
-    # The shader reads the buffer live -- just slide the camera to follow the newest
-    # activity; the linked x-axis relabels itself to absolute time.
+    # The shader reads the buffer live. Scroll the raster under a pinned camera (no
+    # transform cascade); _scroll_to slides the data and relabels the detached x-axis
+    # to absolute time. The camera itself never moves while scrolling.
     x0 = max(0, t - self.window_size + 1)
-    self.view.camera.rect = (x0, 0, self.window_size, self.layer_size)
+    self._scroll_to(x0)
+    self._abs_rect = (x0, 0, self.window_size, self.layer_size)
 
 
 class FeaturePlot(GraphPlotWidget):
