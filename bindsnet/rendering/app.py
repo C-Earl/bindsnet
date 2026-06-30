@@ -15,16 +15,29 @@ app.use_app('glfw')
 
 
 class Application():
-  def __init__(self, network: GUINetwork, width=1400, height=900, title="BindsNET GUI",
+  def __init__(self, network: GUINetwork,
+               width=1400, height=900, title="BindsNET GUI",
                header: str | None = None,
                max_steps_per_second: int | float | str | None = None,
                draw_fps: float | None = None,
                parameters: dict | None = None):
     self.width, self.height = width, height
+
+    # `network` is a GUINetwork. If it OVERRIDES build() (an inheritable model
+    # definition), the Application drives its lifecycle: build() assembles it,
+    # make_input() supplies the stimulus, network.parameters feeds the editable panel,
+    # and the "Apply & Reload" button rebuilds it in place (see reload_model). A plain
+    # GUINetwork assembled imperatively (no build() override) is used as-is with no
+    # reload, driven by the `inputs` dict passed to run().
     self.network = network
-    # Optional {label: value} map surfaced as editable rows in the control panel's
-    # Parameters section (for future model-rebuild support).
-    self.parameters = parameters
+    self._buildable = type(network).build is not GUINetwork.build
+    self._has_make_input = type(network).make_input is not GUINetwork.make_input
+    self.can_reload = self._buildable
+    if self._buildable:
+      self.network.rebuild()                    # initial build() from constructor params
+      self.parameters = dict(network.parameters)
+    else:
+      self.parameters = parameters              # legacy: cosmetic-only panel rows
     self.widgets = []
     self.inputs = None      # Set when run() is called; Inputs into network during runtime
     self.runtime = None     # Set when run() is called; Total runtime of network simulation
@@ -89,7 +102,7 @@ class Application():
     self.grid = self.layout.add_grid(row=next_row, col=0, margin=10)
 
     # Migrate network tensors to shared OpenGL buffers
-    network.migrate()
+    self.network.migrate()
 
     # Build the control surface (a separate Qt window). It calls back into
     # toggle_play/step_once/run_n and reads back via set_time etc.
@@ -164,6 +177,98 @@ class Application():
       self.timer.start()
     self.panel.on_reset()
     self.canvas.update()
+
+  def reload_model(self):
+    # language=rst
+    """
+    Rebuild the network from the control panel's current parameters and re-bind the
+    plots in place, WITHOUT recreating the canvas / control window (that is what causes
+    the black-screen/lag we avoid). Driven by the panel's "Apply & Reload" button, which
+    fires on the main GL thread during panel.pump() -- the same path reset() uses to
+    touch GL, so the context is current and these calls are safe.
+
+    The network's :meth:`GUINetwork.rebuild` reassembles the model IN PLACE (frees the
+    old GL buffers, tears down the layers, re-runs build() with the edited parameters),
+    so the same network object is kept and the widgets simply re-bind to it.
+    """
+    if not self.can_reload:
+      return
+    if self.runtime is None:
+      self.panel.show_status("Start the run before reloading.", error=True)
+      return
+
+    # Coerce the edited fields first; a bad value aborts before the model is touched.
+    try:
+      values = self.panel.get_parameter_values()
+    except Exception as exc:
+      self.panel.show_status(f"Invalid parameter: {exc}", error=True)
+      return
+
+    self.canvas.set_current()   # ensure GL calls below target the plot context
+    try:
+      self.network.rebuild(**values)   # free GL, clear, set params, re-run build()
+      self.network.migrate()           # allocate the rebuilt net's shared GL buffers
+    except Exception as exc:
+      # build() failed (e.g. an invalid size). The network is now an empty shell, but
+      # rebuild() always clears-then-builds, so a subsequent reload with good values
+      # fully recovers. Leave the sim paused and report.
+      self.panel.show_status(f"Build failed: {exc}", error=True)
+      return
+
+    # Re-bind every plot to the rebuilt network (releases old visuals, allocates fresh
+    # history buffers). Done before regenerating inputs so a (rare) input mismatch can't
+    # leave widgets pointing at freed buffers.
+    for widget in self.widgets:
+      widget.reload(self.network)
+    self.parameters = dict(self.network.parameters)
+
+    # Regenerate the stimulus for the rebuilt model. make_input() tracks the parameters
+    # so it always fits; a fixed dict is only warned about if it no longer matches.
+    input_warning = None
+    if self._has_make_input:
+      self.inputs = self.network.make_input(self.runtime)
+    else:
+      try:
+        self._validate_inputs(self.inputs, self.network)
+      except Exception as exc:
+        input_warning = f"Reloaded, but inputs no longer fit: {exc}"
+
+    # Re-arm the run-state machine at t=0 (the rebuilt net + its history buffers are
+    # already fresh/zeroed, so no reset_state_variables/reset_history needed).
+    self.running = False
+    self.step_budget = 0
+    self._was_active = None
+    self._last_draw = None
+    self._sps_count = 0
+    self._sps_t0 = None
+    self.current_time = 0
+    self._set_active(False)
+    if hasattr(self, "timer") and not self.timer.running:
+      self.timer.start()
+
+    self.panel.on_reset()
+    self.panel.set_parameter_values(self.network.parameters)
+    if input_warning is not None:
+      self.panel.show_status(input_warning, error=True)
+    else:
+      self.panel.show_status("Model reloaded.")
+    self.canvas.update()
+
+  def _validate_inputs(self, inputs: dict, network: GUINetwork):
+    # Ensure the (possibly regenerated) inputs match the rebuilt network before swapping
+    # anything in: each input tensor's last dim must equal its target layer's n, and a
+    # time-major tensor must cover the whole runtime. Raises ValueError on a mismatch.
+    for name, tensor in inputs.items():
+      if name not in network.layers:
+        continue
+      n = int(network.layers[name].n)
+      if int(tensor.shape[-1]) != n:
+        raise ValueError(
+          f"input '{name}' last dim {int(tensor.shape[-1])} != layer '{name}' n {n}. "
+          f"Pass `inputs` to run() as a builder function so it tracks the parameters.")
+      if tensor.dim() >= 2 and int(tensor.shape[0]) < self.runtime:
+        raise ValueError(
+          f"input '{name}' has {int(tensor.shape[0])} timesteps < runtime {self.runtime}.")
 
   def _set_active(self, active: bool):
     # Fire on each play<->pause transition: lock the cameras (and resume the
@@ -244,9 +349,21 @@ class Application():
       return True
     return False
 
-  def run(self, inputs: dict[str, torch.Tensor], runtime: int):
-    self.inputs = inputs
+  def run(self, inputs: dict[str, torch.Tensor] | None = None, runtime: int = None):
+    # The stimulus comes from the network's make_input(runtime) when it implements one
+    # (regenerated on every reload so its shape tracks the parameters); otherwise a fixed
+    # `inputs` dict must be supplied here. `runtime` sizes the full-history GL buffers.
+    if runtime is None:
+      raise ValueError("Application.run() requires `runtime`.")
     self.runtime = runtime
+    if self._has_make_input:
+      self.inputs = self.network.make_input(runtime)
+    elif inputs is not None:
+      self.inputs = inputs
+    else:
+      raise ValueError(
+        "Application.run() needs an `inputs` dict unless the network implements "
+        "make_input().")
     # Prime widgets now that runtime is known (full-history buffers need it).
     for widget in self.widgets:
       widget.prime(self.network, runtime)

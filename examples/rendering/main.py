@@ -1,43 +1,19 @@
 from bindsnet.rendering.app import Application
 from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot, NetworkPlot
-from model import create_model
-import torch
+from model import ExampleNetwork
 
 SIM_TIME = 1000
-BATCH_SIZE = 1
 DEVICE = "cuda"
 DRAW_FPS = 30          # cap plot redraws; the sim runs as fast as it can between draws
 
-IN_SIZE = 100
-EXC_SIZE = 20_000
-INH_SIZE = 2000
-I_TO_EXC_CONNECTIVITY = 0.15
-I_TO_INH_CONNECTIVITY = 0.05
-INH_TO_EXC_CONNECTIVITY = 0.05
-EXC_TO_INH_CONNECTIVITY = 0.05
-
-network = create_model(
-  DEVICE,
-  IN_SIZE,
-  EXC_SIZE,
-  INH_SIZE,
-  I_TO_EXC_CONNECTIVITY,
-  I_TO_INH_CONNECTIVITY,
-  INH_TO_EXC_CONNECTIVITY,
-  EXC_TO_INH_CONNECTIVITY,
-)
+# An inheritable GUINetwork: its constructor stores the model parameters, build()
+# assembles the network and make_input() generates the stimulus. The Application drives
+# all three -- it builds the network, populates the control panel from net.parameters,
+# and the "Apply & Reload" button re-runs build()/make_input() with the edited values.
+network = ExampleNetwork(device=DEVICE)
 app = Application(network, 2800, 1800, header="BindsNET Network Activity",
-                  max_steps_per_second=float("inf"), draw_fps=DRAW_FPS,
-                  parameters={
-                    "Input size": IN_SIZE,
-                    "Excitatory size": EXC_SIZE,
-                    "Inhibitory size": INH_SIZE,
-                    "I -> EXC connectivity": I_TO_EXC_CONNECTIVITY,
-                    "I -> INH connectivity": I_TO_INH_CONNECTIVITY,
-                    "INH -> EXC connectivity": INH_TO_EXC_CONNECTIVITY,
-                    "EXC -> INH connectivity": EXC_TO_INH_CONNECTIVITY,
-                  })
-inputs = {"I": torch.rand(SIM_TIME, BATCH_SIZE, IN_SIZE, device=DEVICE) > 0.90}
+                  max_steps_per_second=float("inf"), draw_fps=DRAW_FPS)
+
 app.add_widget(
   RasterPlot(layer_name="EXC_LIF", window_size=500),
   row=0, col=0,
@@ -65,4 +41,4 @@ app.add_widget(
 #   NetworkPlot(afterglow=10),
 #   row=1, col=1,
 # )
-app.run(inputs=inputs, runtime=SIM_TIME)
+app.run(runtime=SIM_TIME)

@@ -534,6 +534,12 @@ class GUINetwork(Network):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        # GUI-tunable model parameters (name -> current value), declared by a subclass
+        # via set_parameters(). The control panel renders these as editable rows and
+        # passes the edited values back to rebuild() on "Apply & Reload". Empty for a
+        # network assembled imperatively (no build() override).
+        self.parameters = {}
+        self._built = False
         self.opengl_vbos = {'connections': {}, 'layers': {}}
         # name -> dict describing a CUDA-registered GL buffer holding that layer's
         # FULL spike history, (T, batch, n) one byte/spike. Populated lazily by a
@@ -551,6 +557,96 @@ class GUINetwork(Network):
         #          each step's row from the host tensor into the GL buffer.
         # Resolved from the layers' device on first use (see _resolve_backend).
         self._use_cuda = None
+
+    # --- inheritable model definition ------------------------------------------
+    # A GUINetwork subclass defines its model by overriding build() (and usually
+    # make_input()), storing its parameters as constructor arguments via
+    # set_parameters(). The Application then drives the lifecycle: it calls build()
+    # to assemble the network, make_input() to generate the stimulus, and -- when the
+    # user edits the parameters and clicks "Apply & Reload" -- rebuild() to reassemble
+    # the model in place from the new values. Example:
+    #
+    #   class MyNet(GUINetwork):
+    #       def __init__(self, device="cuda", in_size=100, exc_size=20_000):
+    #           super().__init__()
+    #           self.device = device
+    #           self.set_parameters(in_size=in_size, exc_size=exc_size)
+    #       def build(self):
+    #           self.add_layer(Input(self.in_size), name="I")
+    #           self.add_layer(LIFNodes(self.exc_size), name="EXC")
+    #           self.add_connection(..., source="I", target="EXC")
+    #           self.to(self.device)
+    #       def make_input(self, runtime):
+    #           return {"I": torch.rand(runtime, self.batch_size, self.in_size,
+    #                                   device=self.device) > 0.9}
+
+    def set_parameters(self, **params) -> None:
+        # language=rst
+        """
+        Declare the GUI-tunable model parameters. Each is stored in ``self.parameters``
+        (so the control panel can render and edit it) AND set as an attribute, so
+        :meth:`build` / :meth:`make_input` can read it as ``self.<name>``. Call from the
+        subclass constructor; :meth:`rebuild` re-calls it with the edited values.
+        """
+        self.parameters = dict(params)
+        for name, value in params.items():
+            setattr(self, name, value)
+
+    def build(self) -> None:
+        # language=rst
+        """
+        Assemble the network: a subclass overrides this to call :meth:`add_layer` /
+        :meth:`add_connection` (and ``self.to(self.device)``) using the parameters
+        stored by :meth:`set_parameters`. Called by the Application -- not the
+        constructor -- so a live reload can re-run it.
+        """
+        raise NotImplementedError(
+            "GUINetwork subclasses must implement build() to assemble the model "
+            "(call self.add_layer / self.add_connection using the stored parameters).")
+
+    def make_input(self, runtime: int) -> Dict[str, torch.Tensor]:
+        # language=rst
+        """
+        Produce the stimulus for a ``runtime``-step run as a ``{layer_name: tensor}``
+        dict (tensors shaped ``[runtime, batch, n]``). A subclass overrides this so the
+        stimulus tracks the parameters (e.g. an input layer sized by a parameter) on
+        every reload. Optional: a network may instead be driven by a fixed dict passed
+        to ``Application.run(inputs=...)``.
+        """
+        raise NotImplementedError(
+            "This GUINetwork does not implement make_input(); either override it or "
+            "pass a fixed `inputs` dict to Application.run().")
+
+    def rebuild(self, **params) -> None:
+        # language=rst
+        """
+        Live model reload: free this network's GL history buffers, tear down its
+        layers/connections, apply the edited parameters, and re-run :meth:`build` -- all
+        on the SAME instance, so the Application's widgets simply re-bind to it. Calling
+        with no params (the initial build) just assembles the model from the parameters
+        already set in the constructor.
+        """
+        self.release_gl()          # free the old run's history buffers (no-op if none)
+        self._clear_structure()    # drop layers/connections/modules + GL bookkeeping
+        if params:
+            self.set_parameters(**{**self.parameters, **params})
+        self.build()
+        self._built = True
+
+    def _clear_structure(self) -> None:
+        # Reset the network to an empty shell so build() can reassemble it from scratch.
+        # Drops the layer/connection registries AND the nn.Module submodule entries they
+        # were added under (add_layer/add_connection call add_module), plus the per-run
+        # GL bookkeeping. Plain attributes (device, parameters, dt, ...) are preserved.
+        self.layers = {}
+        self.connections = {}
+        self.monitors = {}
+        self._modules.clear()
+        self.opengl_vbos = {'connections': {}, 'layers': {}}
+        self._spike_history = {}
+        self._voltage_history = {}
+        self._step_t = 0
+        self._use_cuda = None      # re-resolve GPU/CPU backend after the rebuild
 
     def _resolve_backend(self) -> bool:
         # language=rst
@@ -922,6 +1018,35 @@ class GUINetwork(Network):
             h['vmin'].fill_(float('inf'))
             h['vmax'].fill_(float('-inf'))
         self._step_t = 0
+
+    def release_gl(self) -> None:
+        # language=rst
+        """
+        Free the spike/voltage history GL buffers (and their CUDA registrations) owned
+        by this network. Called when the Application swaps this network out for a freshly
+        built one (live model reload) so the large per-run history buffers -- e.g.
+        ``T*batch*n`` float32 voltage, tens of MB each -- don't leak on every rebuild.
+
+        Best-effort: every step is guarded so a cleanup failure can never abort the
+        reload (the GL context is being reused, not destroyed). The legacy per-layer
+        ``opengl_vbos`` buffers from :meth:`migrate` are intentionally left alone (unused
+        by the renderer; documented legacy).
+        """
+        gpu = self._resolve_backend()
+        for h in list(self._spike_history.values()) + list(self._voltage_history.values()):
+            if gpu and driver is not None and h.get('res') is not None:
+                try:
+                    driver.cuGraphicsUnregisterResource(h['res'])
+                except Exception:
+                    pass
+            vbo = h.get('vbo')
+            if vbo:
+                try:
+                    gl.glDeleteBuffers(1, [int(vbo)])
+                except Exception:
+                    pass
+        self._spike_history = {}
+        self._voltage_history = {}
 
     def _upload_spike_row(self, layer_name: str, t: int) -> None:
         # CPU path: copy this timestep's spikes from the layer's host tensor into row

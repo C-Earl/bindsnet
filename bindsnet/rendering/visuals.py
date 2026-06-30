@@ -173,9 +173,19 @@ class RasterHistoryVisual(Visual):
       return (0, self.n)
     return None
 
-  # No __del__: the buffer texture is freed when the GL context is destroyed.
-  # Calling glDeleteTextures from __del__ races interpreter shutdown (PyOpenGL
-  # lazily imports an array handler too late -> a noisy stderr message).
+  def release(self):
+    # Free the buffer texture now (live model reload detaches this visual while the
+    # GL context lives on). Guarded: cleanup must never break a reload.
+    if self._tbo_tex is not None:
+      try:
+        gl.glDeleteTextures([self._tbo_tex])
+      except Exception:
+        pass
+      self._tbo_tex = None
+
+  # No __del__: the buffer texture is freed by release() (reload) or when the GL
+  # context is destroyed. Calling glDeleteTextures from __del__ races interpreter
+  # shutdown (PyOpenGL lazily imports an array handler too late -> a noisy message).
 
 
 RasterHistory = create_visual_node(RasterHistoryVisual)
@@ -291,8 +301,17 @@ class VoltageHistoryVisual(Visual):
       return (0, self.T)
     return None   # y (voltage) bounds are data-dependent; the widget sets the camera
 
-  # No __del__: the buffer texture is freed when the GL context is destroyed (see
-  # the note on RasterHistoryVisual).
+  def release(self):
+    # Free the buffer texture now (live model reload); guarded (see RasterHistoryVisual).
+    if self._tbo_tex is not None:
+      try:
+        gl.glDeleteTextures([self._tbo_tex])
+      except Exception:
+        pass
+      self._tbo_tex = None
+
+  # No __del__: the buffer texture is freed by release() (reload) or when the GL
+  # context is destroyed (see the note on RasterHistoryVisual).
 
 
 VoltageHistory = create_visual_node(VoltageHistoryVisual)
@@ -401,9 +420,18 @@ class FeatureMatrixVisual(ImageVisual):
 
     self.update()
 
+  def release(self):
+    # Unregister the CUDA-mapped texture now (live model reload); guarded so a
+    # cleanup failure can't break the reload. Idempotent.
+    if self._cuda_tex_resource is not None and driver is not None:
+      try:
+        driver.cuGraphicsUnregisterResource(self._cuda_tex_resource)
+      except Exception:
+        pass
+    self._cuda_tex_resource = None
+
   def __del__(self):
-    if self._cuda_tex_resource is not None:
-      driver.cuGraphicsUnregisterResource(self._cuda_tex_resource)
+    self.release()
 
 
 FeatureMatrix = create_visual_node(FeatureMatrixVisual)
@@ -523,8 +551,17 @@ class NeuronCloudVisual(Visual):
       return (float(self._pos[:, axis].min()), float(self._pos[:, axis].max()))
     return None
 
-  # No __del__: the buffer texture is freed when the GL context is destroyed (see
-  # the note on RasterHistoryVisual).
+  def release(self):
+    # Free the buffer texture now (live model reload); guarded (see RasterHistoryVisual).
+    if self._tbo_tex is not None:
+      try:
+        gl.glDeleteTextures([self._tbo_tex])
+      except Exception:
+        pass
+      self._tbo_tex = None
+
+  # No __del__: the buffer texture is freed by release() (reload) or when the GL
+  # context is destroyed (see the note on RasterHistoryVisual).
 
 
 NeuronCloud = create_visual_node(NeuronCloudVisual)
@@ -727,6 +764,12 @@ class CachedSynapseLinesVisual(Visual):
     if axis == 1:
       return (self._bbox[1], self._bbox[3])
     return None
+
+  def release(self):
+    # Drop the FBO + colour texture (gloo objects are GC-freed); guarded. Called when
+    # a live model reload replaces this visual.
+    self._fbo = None
+    self._tex = None
 
 
 CachedSynapseLines = create_visual_node(CachedSynapseLinesVisual)

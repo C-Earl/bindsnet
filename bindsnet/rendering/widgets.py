@@ -197,6 +197,16 @@ class AbstractWidget:
     # view; the underlying GL history buffers are cleared by GUINetwork.reset_history.
     pass
 
+  def reload(self, network):
+    # Called by the app on a live model reload (Application.reload_model): the old
+    # network has been replaced by a freshly built one, possibly with different layer
+    # sizes. The one-time scene scaffolding (axes, scroll-axis gutter, colorbar, title)
+    # built in prime() is KEPT; only the network-bound data visuals + their GPU history
+    # buffers are released and re-created against `network` (the per-widget _bind()).
+    # Default: nothing to do (scaffold-only widgets have no network binding). Requires
+    # prime() to have run first (same total runtime / window size across reloads).
+    pass
+
 
 # A plotting widget with x and y axis
 class GraphPlotWidget(AbstractWidget):
@@ -411,6 +421,19 @@ class GraphPlotWidget(AbstractWidget):
     self._exit_scroll_mode()
     self.view.camera.interactive = True
 
+  def _detach_scroll_for_reload(self):
+    # Live model reload: rewind the (kept) scroll-axis gutter to t=0 and show the
+    # dynamic vispy x-axis, so the re-bound visual starts from a clean, unscrolled
+    # state. The gutter geometry itself (built once in _build_scroll_axis) is reused --
+    # runtime and window_size don't change across reloads, only the data buffer does.
+    if self.x_scroll_marks is not None:
+      self.x_scroll_marks.set_x_offset(0)
+      self.x_scroll_labels.set_x_offset(0)
+      self.x_scroll_view.visible = False
+    self.x_axis.visible = True
+    self._scrolling = False
+    self._last_x0 = None
+
 
 class VoltagePlot(GraphPlotWidget):
   # language=rst
@@ -450,25 +473,26 @@ class VoltagePlot(GraphPlotWidget):
   def _default_title(self) -> str:
     return f"{self.layer_name} — Voltage"
 
-  def prime(self, network, runtime=None):
+  def _bind(self, network):
+    # Network-dependent binding, shared by prime() (first run) and reload() (after a
+    # live model rebuild). Allocates the voltage-history GL buffer on `network`, creates
+    # the trace visual over it, and re-fits the camera. Neuron ids past the (possibly
+    # new, smaller) layer size are dropped so texelFetch stays in range.
     self.layer = network.layers[self.layer_name]
-    if runtime is None:
-      raise ValueError(
-        "VoltagePlot needs the total runtime to size its full-history buffer; "
-        "it is supplied by Application.run().")
+    draw_ids = [i for i in self.neuron_ids if 0 <= i < int(self.layer.n)]
 
     # Allocate the GPU history buffer and route the layer's voltage into it.
-    info = network.enable_voltage_history(self.layer_name, runtime)
+    info = network.enable_voltage_history(self.layer_name, self._runtime)
     self.total_timesteps = info['T']
     self._vmin, self._vmax = info['vmin'], info['vmax']   # in-place-updated scalars
 
-    K = len(self.neuron_ids)
+    K = len(draw_ids)
     colors = np.array(
       [[*colorsys.hsv_to_rgb(i / max(K, 1), 0.9, 1.0), 1.0] for i in range(K)],
       dtype=np.float32)
 
     self.lines = VoltageHistory(
-        neuron_ids=self.neuron_ids, total_timesteps=info['T'],
+        neuron_ids=draw_ids, total_timesteps=info['T'],
         row_stride=info['row'], gl_buffer_id=info['vbo'], colors=colors,
     )
     self.view.add(self.lines)
@@ -482,6 +506,15 @@ class VoltagePlot(GraphPlotWidget):
     self.view.camera.rect = self._initial_rect
     # Scroll the traces under a pinned camera instead of panning the camera.
     self._init_scroll(self.lines)
+    self._last_y_extent = None   # last (y0, y1) pushed to the camera; skip if unchanged
+
+  def prime(self, network, runtime=None):
+    if runtime is None:
+      raise ValueError(
+        "VoltagePlot needs the total runtime to size its full-history buffer; "
+        "it is supplied by Application.run().")
+    self._runtime = runtime
+    self._bind(network)
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
@@ -490,8 +523,17 @@ class VoltagePlot(GraphPlotWidget):
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
     self._build_scroll_axis(step)
-    self._last_y_extent = None   # last (y0, y1) pushed to the camera; skip if unchanged
     self._apply_title()
+
+  def reload(self, network):
+    # Live model reload: keep the axes/scroll gutter/title; swap the trace visual + its
+    # GPU buffer (and the running vmin/vmax scalars) for the new network.
+    self._detach_scroll_for_reload()
+    if self.lines is not None:
+      self.lines.parent = None
+      self.lines.release()
+      self.lines = None
+    self._bind(network)
 
   def _y_extent(self):
     # Dynamic y range: the configured y_range, grown outward to fit the observed
@@ -566,16 +608,13 @@ class RasterPlot(GraphPlotWidget):
   def _default_title(self) -> str:
     return f"{self.layer_name} — Raster"
 
-  def prime(self, network, runtime=None):
+  def _bind(self, network):
+    # Network-dependent binding, shared by prime() (first run) and reload() (after a
+    # live model rebuild). Allocates the spike-history GL buffer on `network`, creates
+    # the data visual over it, and fits the camera to the (possibly new) layer size.
     self.layer = network.layers[self.layer_name]
     self.layer_size = self.layer.n
-    if runtime is None:
-      raise ValueError(
-        "RasterPlot needs the total runtime to size its full-history buffer; "
-        "it is supplied by Application.run().")
-
-    # Allocate the GPU history buffer and route the layer's spikes into it.
-    info = network.enable_spike_history(self.layer_name, runtime)
+    info = network.enable_spike_history(self.layer_name, self._runtime)
     self.total_timesteps = info['T']
     self.raster = RasterHistory(
         n_neurons=info['n'], total_timesteps=info['T'],
@@ -590,6 +629,14 @@ class RasterPlot(GraphPlotWidget):
     self.view.camera.rect = self._initial_rect
     # Scroll the raster under a pinned camera instead of panning the camera.
     self._init_scroll(self.raster)
+
+  def prime(self, network, runtime=None):
+    if runtime is None:
+      raise ValueError(
+        "RasterPlot needs the total runtime to size its full-history buffer; "
+        "it is supplied by Application.run().")
+    self._runtime = runtime
+    self._bind(network)
     self.y_axis.axis.axis_label = "Neuron"
     self.x_axis.axis.axis_label = "Timestep"
     # Ticks at constant multiples of `step` so a sliding domain produces smoothly
@@ -599,6 +646,16 @@ class RasterPlot(GraphPlotWidget):
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
     self._build_scroll_axis(step)
     self._apply_title()
+
+  def reload(self, network):
+    # Live model reload: keep the axes/scroll gutter/title, swap the data visual +
+    # its GPU buffer for the new network (layer size may differ -> camera re-fits).
+    self._detach_scroll_for_reload()
+    if self.raster is not None:
+      self.raster.parent = None
+      self.raster.release()
+      self.raster = None
+    self._bind(network)
 
   def render(self, t):
     # The shader reads the buffer live. Scroll the raster under a pinned camera (no
@@ -655,7 +712,11 @@ class FeaturePlot(GraphPlotWidget):
   def _default_title(self) -> str:
     return f"{self.source} → {self.target} — {self.feature_name}"
 
-  def prime(self, network, runtime=None):
+  def _bind(self, network):
+    # Network-dependent binding, shared by prime() (first run) and reload() (after a
+    # live model rebuild). Re-locates the connection/feature on `network`, creates the
+    # heatmap visual over its value matrix, and fits the camera. Returns the colour
+    # limits so the caller can build/refresh the colorbar.
     self.connection = network.connections[(self.source, self.target)]
     self.feature = self.connection.feature_index[self.feature_name]
 
@@ -684,10 +745,30 @@ class FeaturePlot(GraphPlotWidget):
     # Unlike the time-series plots, the heatmap has no follow window fighting the
     # user, so allow free (bounded) zoom/pan for the whole run.
     self.view.camera.interactive = True
+    return clim
+
+  def prime(self, network, runtime=None):
+    clim = self._bind(network)
     self.y_axis.axis.axis_label = self.y_label
     self.x_axis.axis.axis_label = self.x_label
     self._add_colorbar(clim)
     self._apply_title()
+
+  def reload(self, network):
+    # Live model reload: keep the axes/colorbar/title, swap the heatmap visual for one
+    # bound to the new network's feature matrix (its shape may differ -> camera re-fits).
+    if self.visual is not None:
+      self.visual.parent = None
+      self.visual.release()
+      self.visual = None
+    clim = self._bind(network)
+    # Refresh the colorbar legend if the value range changed (best-effort: the stock
+    # ColorBarWidget may not relabel, which is only cosmetic).
+    if self.colorbar is not None:
+      try:
+        self.colorbar.clim = clim
+      except Exception:
+        pass
 
   def _add_colorbar(self, clim):
     # Vertical bar to the right of the view (grid col 2). White text/border: the
@@ -977,11 +1058,11 @@ class NetworkPlot(AbstractWidget):
     self.view.add(self.synapses)
 
   # --- AbstractWidget API ---------------------------------------------------
-  def prime(self, network, runtime=None):
-    if runtime is None:
-      raise ValueError(
-        "NetworkPlot needs the total runtime to size its spike-history buffers; "
-        "it is supplied by Application.run().")
+  def _bind(self, network):
+    # Network-dependent binding, shared by prime() (first run) and reload() (after a
+    # live model rebuild). Re-lays-out the neurons, rebuilds the synapse lines + neuron
+    # clouds against `network`, and fits the camera. Assumes the per-widget visual lists
+    # were cleared by the caller (prime starts empty; reload releases the old ones).
     names = self._layout(network)
 
     # Data-space bounding box of all neuron positions (lines live within it).
@@ -995,7 +1076,7 @@ class NetworkPlot(AbstractWidget):
     # One neuron cloud per layer, each bound to that layer's (shared) spike history.
     K = len(names)
     for ci, name in enumerate(names):
-      info = network.enable_spike_history(name, runtime)
+      info = network.enable_spike_history(name, self._runtime)
       pos = self._positions[name]
       base = (*colorsys.hsv_to_rgb(ci / max(K, 1), 0.55, 0.85), 1.0)
       cloud = NeuronCloud(
@@ -1014,7 +1095,30 @@ class NetworkPlot(AbstractWidget):
     self.view.camera.limit_rect = Rect(*rect)
     self._initial_rect = rect
     self.view.camera.rect = rect
+
+  def prime(self, network, runtime=None):
+    if runtime is None:
+      raise ValueError(
+        "NetworkPlot needs the total runtime to size its spike-history buffers; "
+        "it is supplied by Application.run().")
+    self._runtime = runtime
+    self._bind(network)
     self._apply_title()
+
+  def reload(self, network):
+    # Live model reload: release the old clouds + cached synapse lines, drop the stale
+    # layout, and rebuild everything against the new network (sizes/connectivity differ).
+    if self.synapses is not None:
+      self.synapses.parent = None
+      self.synapses.release()
+      self.synapses = None
+    for cloud in self.clouds:
+      cloud.parent = None
+      cloud.release()
+    self.clouds = []
+    self._positions = {}
+    self._col = {}
+    self._bind(network)
 
   def capture(self, t):
     # Spikes are already in the GL history buffer (written in network.step); nothing
