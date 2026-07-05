@@ -2,6 +2,7 @@ from vispy.visuals import ImageVisual, Visual
 from vispy.visuals.text.text import (TextVisual, _VERTEX_SHADER as _TEXT_VERT,
                                      _FRAGMENT_SHADER as _TEXT_FRAG)
 from vispy.scene.visuals import create_visual_node
+from vispy.visuals.transforms import NullTransform
 from vispy import gloo
 from vispy.gloo.context import get_current_canvas
 try:
@@ -14,11 +15,8 @@ import numpy as np
 
 
 class _UnsetSamplerBufferFilter(logging.Filter):
-  # RasterHistoryVisual / VoltageHistoryVisual / NeuronCloudVisual deliberately
-  # never set their samplerBuffer uniforms (`u_spikes`, `u_volts`, `u_fire`): gloo
-  # has no samplerBuffer support, so each defaults to texture unit 0, which we bind
-  # by hand. VisPy's one-time program validation logs that as an "unset variable"
-  # -- drop just those messages so they don't look like errors.
+  # Raster/Voltage/NeuronCloud never set their samplerBuffer uniforms (gloo has no
+  # samplerBuffer -> default to unit 0, bound by hand). Drop vispy's "unset variable" log.
   _UNSET = ('u_spikes', 'u_volts', 'u_fire')
 
   def filter(self, record):
@@ -35,17 +33,11 @@ def extract_gl_id(gl_object):
   return canvas.context.shared.parser._objects[gl_object_id].handle
 
 
-# Full-history, true-zero-copy spike raster. The layer's spikes are written in
-# place by the node straight into a CUDA-registered GL buffer holding the WHOLE
-# run, (total_timesteps, batch, n_neurons) one byte per spike (time-major). This
-# visual binds that buffer as a TEXTURE_BUFFER and the fragment shader resolves
-# each on-screen pixel (time, neuron) -> texelFetch -> spike colour. No per-frame
-# copy, no ring/roll/seam: x is absolute time, so zooming out shows all history
-# back to t=0.
-#
-# #version 140: gives texelFetch + usamplerBuffer while still allowing
-# gl_FragColor and the attribute/varying qualifiers vispy's transform Function
-# emits (vispy rewrites these to in/out to match the version automatically).
+#### Full-history, true-zero-copy spike raster ####
+# Node writes spikes in place into a CUDA-registered GL buffer for the WHOLE run,
+# (T, batch, n) one byte/spike (time-major). Bound as a TEXTURE_BUFFER; frag shader maps
+# pixel (time, neuron) -> texelFetch -> colour. No per-frame copy, x = absolute time.
+# #version 140: texelFetch + usamplerBuffer, still allows gl_FragColor + vispy's qualifiers.
 _RASTER_HIST_VERT = """
 #version 140
 attribute vec2 a_pos;     // quad corner in DATA coords: x=time [0,T], y=neuron [0,n]
@@ -133,19 +125,16 @@ class RasterHistoryVisual(Visual):
     self.shared_program['u_on'] = on_color
     self.shared_program['u_off'] = off_color
     self.shared_program['u_xoff'] = 0.0      # no scroll until the widget drives it
-    # NOTE: u_spikes is deliberately never set. gloo has no samplerBuffer support,
-    # and an unset sampler defaults to texture unit 0, which we bind in _prepare_draw.
+    # u_spikes never set: unset sampler -> unit 0, bound in _prepare_draw.
     self._draw_mode = 'triangle_strip'
     self.set_gl_state('translucent', depth_test=False)
 
   def set_x_offset(self, x0):
-    # Scroll the raster under a fixed camera: a single scalar-uniform write (the
-    # cheapest per-draw op) instead of moving the camera or the visual transform.
+    # Scroll under a fixed camera: one scalar-uniform write, no camera move.
     self.shared_program['u_xoff'] = float(x0)
 
   def _create_tbo(self):
-    # A buffer texture is a 1-D view of the GL buffer as R8UI texels. glTexBuffer
-    # only references the buffer (no copy); texelFetch always reads its live bytes.
+    # 1-D R8UI view of the GL buffer; glTexBuffer references it (no copy).
     tex = gl.glGenTextures(1)
     gl.glBindTexture(gl.GL_TEXTURE_BUFFER, tex)
     gl.glTexBuffer(gl.GL_TEXTURE_BUFFER, gl.GL_R8UI, self._gl_buffer_id)
@@ -155,11 +144,8 @@ class RasterHistoryVisual(Visual):
   def _prepare_draw(self, view):
     if self._tbo_tex is None:
       self._create_tbo()
-    # Bind our buffer-texture to unit 0 with an IMMEDIATE raw GL call. gloo's own
-    # draw is deferred to the canvas GLIR flush, but this binding persists until
-    # then -- no other visual binds the GL_TEXTURE_BUFFER target -- and u_spikes
-    # samples unit 0 by default. This is the one raw-GL touch the deferred GLIR
-    # pipeline forces (gloo can't carry a samplerBuffer for us).
+    # Immediate raw-GL bind to unit 0; persists to the GLIR flush (nothing else binds
+    # GL_TEXTURE_BUFFER), and u_spikes samples unit 0. The one raw-GL touch gloo forces.
     gl.glActiveTexture(gl.GL_TEXTURE0)
     gl.glBindTexture(gl.GL_TEXTURE_BUFFER, self._tbo_tex)
 
@@ -174,8 +160,7 @@ class RasterHistoryVisual(Visual):
     return None
 
   def release(self):
-    # Free the buffer texture now (live model reload detaches this visual while the
-    # GL context lives on). Guarded: cleanup must never break a reload.
+    # Free the buffer texture on reload; guarded so cleanup can't break a reload.
     if self._tbo_tex is not None:
       try:
         gl.glDeleteTextures([self._tbo_tex])
@@ -183,24 +168,19 @@ class RasterHistoryVisual(Visual):
         pass
       self._tbo_tex = None
 
-  # No __del__: the buffer texture is freed by release() (reload) or when the GL
-  # context is destroyed. Calling glDeleteTextures from __del__ races interpreter
-  # shutdown (PyOpenGL lazily imports an array handler too late -> a noisy message).
+  # No __del__: glDeleteTextures from __del__ races interpreter shutdown (noisy PyOpenGL
+  # message). release() (reload) or GL-context teardown frees the texture.
 
 
 RasterHistory = create_visual_node(RasterHistoryVisual)
 
 
-# Full-history, zero-copy voltage traces -- the voltage analogue of
-# RasterHistoryVisual. The layer's voltage is written in place by the node straight
-# into a CUDA-registered GL buffer holding the WHOLE run, (T, batch, n) float32
-# time-major (see GUINetwork.enable_voltage_history). This visual binds that buffer
-# as a TEXTURE_BUFFER (R32F) and the VERTEX shader pulls v[t, neuron] via texelFetch
-# to position each point of each selected neuron's trace. No per-frame copy, no ring
-# buffer/roll/seam: x is absolute time, so zooming out shows all history back to t=0.
-#
-# #version 140: gives texelFetch + samplerBuffer in the vertex stage while still
-# allowing gl_FragColor and the attribute/varying qualifiers vispy emits.
+#### Full-history, zero-copy voltage traces ####
+# Voltage analogue of the raster. Node writes voltage in place into a CUDA-registered GL
+# buffer for the WHOLE run, (T, batch, n) float32 time-major (enable_voltage_history).
+# Bound as a TEXTURE_BUFFER (R32F); vertex shader pulls v[t, neuron] via texelFetch to
+# position each trace point. No per-frame copy, x = absolute time.
+# #version 140: texelFetch + samplerBuffer in the vertex stage.
 _VOLT_HIST_VERT = """
 #version 140
 attribute float a_time;     // absolute timestep for this vertex, 0..T-1
@@ -237,9 +217,8 @@ class VoltageHistoryVisual(Visual):
     self._tbo_tex = None                     # GL texture viewing that buffer (lazy)
     Visual.__init__(self, vcode=_VOLT_HIST_VERT, fcode=_VOLT_HIST_FRAG)
 
-    # One vertex per (selected neuron, timestep). The vertex shader pulls the y value
-    # (voltage) from the buffer texture; only the static (time, neuron, colour) live
-    # in attributes. K * T vertices total.
+    # One vertex per (selected neuron, timestep); K*T total. Only static (time, neuron,
+    # colour) are attributes; y (voltage) comes from the buffer texture.
     times = np.tile(np.arange(self.T, dtype=np.float32), self.K)
     neurons = np.repeat(np.array(self.ids, dtype=np.float32), self.T)
     cols = np.repeat(colors.astype(np.float32), self.T, axis=0)
@@ -251,20 +230,15 @@ class VoltageHistoryVisual(Visual):
     self.shared_program['a_color'] = self._color_vbo
     self.shared_program['u_stride'] = self.stride
     self.shared_program['u_xoff'] = 0.0      # no scroll until the widget drives it
-    # NOTE: u_volts is deliberately never set. gloo has no samplerBuffer support, and
-    # an unset sampler defaults to texture unit 0, which we bind in _prepare_draw.
+    # u_volts never set: unset sampler -> unit 0, bound in _prepare_draw.
 
-    # Static GL_LINES segments joining consecutive timesteps within each neuron's
-    # trace -- the seam-free analogue of ScrollLine's ring index (x is absolute time
-    # now, so there is no wrap/seam). Built once.
+    # Static GL_LINES joining consecutive timesteps within each trace (built once).
     self._index_buffer = gloo.IndexBuffer(self._make_index())
     self._draw_mode = 'lines'
     self.set_gl_state('translucent', depth_test=False)
 
   def set_x_offset(self, x0):
-    # Scroll the traces under a fixed camera via a single scalar-uniform write (see
-    # RasterHistoryVisual.set_x_offset).
-    self.shared_program['u_xoff'] = float(x0)
+    self.shared_program['u_xoff'] = float(x0)   # scroll via one uniform write
 
   def _make_index(self):
     # Edges (t, t+1) within each neuron's contiguous block of T vertices.
@@ -274,8 +248,7 @@ class VoltageHistoryVisual(Visual):
     return (seg[None] + (np.arange(K) * T)[:, None, None]).reshape(-1, 2).astype(np.uint32)
 
   def _create_tbo(self):
-    # A buffer texture is a 1-D view of the GL buffer as R32F texels. glTexBuffer
-    # only references the buffer (no copy); texelFetch always reads its live floats.
+    # 1-D R32F view of the GL buffer; glTexBuffer references it (no copy).
     tex = gl.glGenTextures(1)
     gl.glBindTexture(gl.GL_TEXTURE_BUFFER, tex)
     gl.glTexBuffer(gl.GL_TEXTURE_BUFFER, gl.GL_R32F, self._gl_buffer_id)
@@ -285,11 +258,8 @@ class VoltageHistoryVisual(Visual):
   def _prepare_draw(self, view):
     if self._tbo_tex is None:
       self._create_tbo()
-    # Bind our buffer-texture to unit 0 with an IMMEDIATE raw GL call. gloo flushes
-    # each program's draw at the end of Program.draw(), so this binding persists
-    # through THIS visual's own draw -- u_volts samples unit 0 by default. (The
-    # raster does the same in its own _prepare_draw; per-draw flush keeps them from
-    # colliding even though both target GL_TEXTURE_BUFFER on unit 0.)
+    # Immediate raw-GL bind to unit 0; gloo's per-program flush keeps it live through
+    # this draw (same as the raster, no collision on unit 0).
     gl.glActiveTexture(gl.GL_TEXTURE0)
     gl.glBindTexture(gl.GL_TEXTURE_BUFFER, self._tbo_tex)
 
@@ -302,7 +272,7 @@ class VoltageHistoryVisual(Visual):
     return None   # y (voltage) bounds are data-dependent; the widget sets the camera
 
   def release(self):
-    # Free the buffer texture now (live model reload); guarded (see RasterHistoryVisual).
+    # Free the buffer texture on reload; guarded (see RasterHistoryVisual).
     if self._tbo_tex is not None:
       try:
         gl.glDeleteTextures([self._tbo_tex])
@@ -310,8 +280,7 @@ class VoltageHistoryVisual(Visual):
         pass
       self._tbo_tex = None
 
-  # No __del__: the buffer texture is freed by release() (reload) or when the GL
-  # context is destroyed (see the note on RasterHistoryVisual).
+  # No __del__ (see RasterHistoryVisual).
 
 
 VoltageHistory = create_visual_node(VoltageHistoryVisual)
@@ -339,14 +308,12 @@ class FeatureMatrixVisual(ImageVisual):
     self._cuda_tex_resource = None
     self._texture_format = texture_format   # used by the CPU set_data fallback
     dummy = np.zeros((rows, cols), dtype=texture_format)
-    # Explicit numeric clim (NOT 'auto'): GPU-scaled textures freeze 'auto' clim on
-    # the first (all-zero) upload, mapping everything to one color. See memory note.
+    # Explicit numeric clim (not 'auto'): 'auto' freezes on the first all-zero upload.
     super().__init__(data=dummy, texture_format=texture_format, clim=clim, cmap=cmap)
     self.freeze()
 
   def _register_texture(self):
-    # The gloo texture's GL object only exists after the first draw has flushed it
-    # to the GPU, so registration is done lazily.
+    # Lazy: the gloo texture's GL object only exists after the first draw flushes it.
     try:
       gl_tex_id = extract_gl_id(self._texture)
     except (KeyError, AttributeError):
@@ -366,12 +333,9 @@ class FeatureMatrixVisual(ImageVisual):
     return True
 
   def migrate(self):
-    # Push the feature's current value matrix into the texture. No `t`: a feature
-    # value is a live snapshot, not a function of the timestep.
+    # Push the current value matrix into the texture (a snapshot, no `t`).
 
-    # CPU model (or no CUDA): no texture interop -- upload the whole matrix with a
-    # host copy each refresh. Cheap relative to a CPU simulation step, and the
-    # value matrix is the only thing that crosses the bus.
+    # CPU / no CUDA: no interop -- host-copy the whole matrix (cheap vs a CPU sim step).
     if driver is None or not self.value_getter().is_cuda:
       val = self.value_getter().detach().to('cpu').numpy().astype(
         self._texture_format, copy=False)
@@ -382,8 +346,7 @@ class FeatureMatrixVisual(ImageVisual):
     if self._cuda_tex_resource is None and not self._register_texture():
       return  # texture not on the GPU yet; skip this frame
 
-    # Re-fetch each frame: learning rules may rebind feature.value to a new tensor
-    # (e.g. Weight.compute under enforce_polarity), like LIFNodes rebinds layer.v.
+    # Re-fetch each frame: learning rules may rebind feature.value to a new tensor.
     val = self.value_getter().contiguous()
     elem = val.element_size()
     src_ptr = val.data_ptr()
@@ -421,8 +384,7 @@ class FeatureMatrixVisual(ImageVisual):
     self.update()
 
   def release(self):
-    # Unregister the CUDA-mapped texture now (live model reload); guarded so a
-    # cleanup failure can't break the reload. Idempotent.
+    # Unregister the CUDA-mapped texture on reload; guarded, idempotent.
     if self._cuda_tex_resource is not None and driver is not None:
       try:
         driver.cuGraphicsUnregisterResource(self._cuda_tex_resource)
@@ -437,18 +399,12 @@ class FeatureMatrixVisual(ImageVisual):
 FeatureMatrix = create_visual_node(FeatureMatrixVisual)
 
 
-# Neurons-as-circles, with firing read straight from the spike-history GL buffer.
-# Each neuron is one GL_POINTS vertex placed at a static layout position (a_pos).
-# Firing is pulled zero-copy from the SAME (T, batch, n) R8UI spike-history buffer
-# RasterHistoryVisual reads (see GUINetwork.enable_spike_history): the vertex shader
-# texelFetches this neuron's spike at the current timestep (and a few preceding ones)
-# to compute a fading "glow" intensity, and the fragment shader draws a filled disc
-# coloured between the layer's base colour and the fire colour. No per-frame copy:
-# the owning widget just updates the u_t uniform each draw.
-#
-# #version 140: gives texelFetch + usamplerBuffer while still allowing gl_FragColor
-# and the attribute/varying qualifiers vispy's transform Function emits (vispy
-# rewrites these to in/out to match the version automatically).
+#### Neurons-as-circles, firing read from the spike-history GL buffer ####
+# One GL_POINTS vertex per neuron at a static layout position. Firing pulled zero-copy
+# from the SAME R8UI spike-history buffer the raster reads: the vertex shader texelFetches
+# this neuron's recent spikes for a fading "glow"; the frag shader draws a disc between
+# base and fire colour. No per-frame copy: the widget just updates u_t.
+# #version 140: texelFetch + usamplerBuffer.
 _NEURON_VERT = """
 #version 140
 attribute vec2 a_pos;       // neuron position in DATA coords (static layout)
@@ -515,8 +471,7 @@ class NeuronCloudVisual(Visual):
     self.shared_program['u_pointsize'] = float(point_size)
     self.shared_program['u_base'] = base_color
     self.shared_program['u_fire_color'] = fire_color
-    # NOTE: u_fire is deliberately never set (gloo has no samplerBuffer support); it
-    # defaults to texture unit 0, which we bind by hand in _prepare_draw.
+    # u_fire never set: unset sampler -> unit 0, bound in _prepare_draw.
     self._draw_mode = 'points'
     self.set_gl_state('translucent', depth_test=False)
 
@@ -534,12 +489,8 @@ class NeuronCloudVisual(Visual):
   def _prepare_draw(self, view):
     if self._tbo_tex is None:
       self._create_tbo()
-    # Round point sprites need program-controlled point size. Enable it here (raw
-    # GL) so gl_PointSize from the vertex shader takes effect; harmless if already on.
-    gl.glEnable(gl.GL_PROGRAM_POINT_SIZE)
-    # Bind our buffer-texture to unit 0 (u_fire samples unit 0 by default). Same
-    # immediate-bind trick RasterHistoryVisual uses; per-program flush keeps it live
-    # through this visual's draw.
+    gl.glEnable(gl.GL_PROGRAM_POINT_SIZE)   # let the vertex shader's gl_PointSize apply
+    # Immediate raw-GL bind to unit 0 (u_fire), same trick as the raster.
     gl.glActiveTexture(gl.GL_TEXTURE0)
     gl.glBindTexture(gl.GL_TEXTURE_BUFFER, self._tbo_tex)
 
@@ -552,7 +503,7 @@ class NeuronCloudVisual(Visual):
     return None
 
   def release(self):
-    # Free the buffer texture now (live model reload); guarded (see RasterHistoryVisual).
+    # Free the buffer texture on reload; guarded (see RasterHistoryVisual).
     if self._tbo_tex is not None:
       try:
         gl.glDeleteTextures([self._tbo_tex])
@@ -560,19 +511,18 @@ class NeuronCloudVisual(Visual):
         pass
       self._tbo_tex = None
 
-  # No __del__: the buffer texture is freed by release() (reload) or when the GL
-  # context is destroyed (see the note on RasterHistoryVisual).
+  # No __del__ (see RasterHistoryVisual).
 
 
 NeuronCloud = create_visual_node(NeuronCloudVisual)
 
 
-# Synapses-as-lines. A single GL_LINES draw covers every selected synapse across all
-# connections: each segment is two vertices in `positions`, coloured per-vertex from
-# the synapse weight (`colors`). Forward edges are one straight segment; recurrent /
-# back edges are pre-tessellated into several short segments along a bowed curve by
-# the owning widget, so they still live in this one flat lines buffer. The colour
-# buffer is rebuildable via set_colors -- the hook for later weight-change rendering.
+#### Synapses-as-lines ####
+# A single GL_LINES draw covers every selected synapse across all connections: each
+# segment is two vertices in `positions`, coloured per-vertex by weight (`colors`).
+# Forward edges are one straight segment; recurrent/back edges are pre-tessellated into
+# short segments along a bowed curve by the widget, so they share this one flat buffer.
+# The colour buffer is rebuildable via set_colors (the weight-change rendering hook).
 _SYNAPSE_VERT = """
 #version 140
 attribute vec2 a_pos;
@@ -603,8 +553,7 @@ class SynapseLinesVisual(Visual):
     self.set_gl_state('translucent', depth_test=False)
 
   def set_colors(self, colors):
-    # Goal-3 hook: re-drive per-vertex colour from refreshed weights. `colors` must
-    # match the vertex count established at construction (2 verts per segment).
+    # Weight-change hook. `colors` must match the construction vertex count.
     self._color_vbo.set_data(np.asarray(colors, dtype=np.float32))
     self.update()
 
@@ -623,17 +572,13 @@ class SynapseLinesVisual(Visual):
 SynapseLines = create_visual_node(SynapseLinesVisual)
 
 
-# Cached synapse lines: the synapse geometry is STATIC, but a single SceneCanvas
-# clears and redraws every visual each frame, so plain SynapseLines re-pays its
-# (vertex-bound) line-draw cost on every frame -- ~24 ms with another plot on the
-# canvas (profiled). This visual draws the lines ONCE into an offscreen texture (an
-# FBO covering the network's data-space bounding box) and then, every frame, draws a
-# single camera-transformed textured quad over that bbox. Because the quad lives in
-# DATA coordinates, the scene camera pans/zooms it exactly like the lines would move,
-# so the expensive line pass NEVER re-runs on camera changes -- only when the colours
-# change (`set_colors`, the goal-3 weight-change hook). Trade-off: the cache is a
-# raster snapshot, so zooming far in shows texture pixelation (raise `max_side` or
-# call `refresh()` for a re-render at the current detail if that matters).
+#### Cached synapse lines ####
+# Synapse geometry is STATIC, but the canvas redraws every visual each frame, so plain
+# SynapseLines re-pays its vertex-bound draw every frame (~24 ms, profiled). Instead: draw
+# the lines ONCE into an offscreen FBO texture (over the data-space bbox), then draw a
+# camera-transformed textured quad over that bbox each frame. The quad is in DATA coords,
+# so the camera moves it like the lines -- the line pass only re-runs on a colour change
+# (`set_colors`). Trade-off: a raster snapshot, so far zoom pixelates (raise `max_side`).
 _CACHED_LINE_VERT = """
 #version 120
 attribute vec2 a_pos;
@@ -718,10 +663,8 @@ class CachedSynapseLinesVisual(Visual):
     self.set_gl_state('translucent', depth_test=False)
 
   def refresh(self):
-    # Render the (static) lines into the offscreen texture. Cheap to call when clean
-    # via `if visual.dirty: visual.refresh()`; the owning widget gates it. Runs OUTSIDE
-    # the scene draw (from the widget's render()), so the nested FBO pass doesn't
-    # interleave with vispy's per-visual GLIR flush.
+    # Render the static lines into the offscreen texture. Runs OUTSIDE the scene draw
+    # (from the widget's render()) so the nested FBO pass doesn't interleave with GLIR.
     if self._tex is None:
       self._tex = gloo.Texture2D(
         shape=(self._H, self._W, 4), format='rgba', interpolation='linear')
@@ -734,9 +677,8 @@ class CachedSynapseLinesVisual(Visual):
                      blend_func=('src_alpha', 'one_minus_src_alpha'))
       gloo.clear(color=(0.0, 0.0, 0.0, 0.0))
       self._line_prog.draw('lines')
-    # FrameBuffer.__exit__ rebinds the default FBO but does NOT restore the viewport,
-    # so reset it to the full canvas; otherwise the next on-screen draw is squashed
-    # into the FBO's (W, H) rect. (Belt-and-suspenders: vispy also resets it per draw.)
+    # FrameBuffer.__exit__ doesn't restore the viewport, so reset it to the full canvas
+    # (else the next on-screen draw is squashed into the FBO's (W, H) rect).
     canvas = getattr(self, 'canvas', None)
     if canvas is not None:
       w, h = canvas.physical_size
@@ -744,16 +686,13 @@ class CachedSynapseLinesVisual(Visual):
     self.dirty = False
 
   def set_colors(self, colors):
-    # Goal-3 hook: re-drive per-vertex colour from refreshed weights, then mark the
-    # cache stale so the next render() re-bakes the texture.
+    # Weight-change hook: update colours, mark stale so the next render() re-bakes.
     self._line_color.set_data(np.asarray(colors, dtype=np.float32))
     self.dirty = True
 
   def _prepare_draw(self, view):
-    # If the texture isn't baked yet (first frame before the widget called refresh),
-    # bake it now so the quad has something to sample.
     if self._tex is None:
-      self.refresh()
+      self.refresh()   # first frame: bake so the quad has something to sample
 
   def _prepare_transforms(self, view):
     view.view_program.vert['transform'] = view.transforms.get_transform()
@@ -766,8 +705,7 @@ class CachedSynapseLinesVisual(Visual):
     return None
 
   def release(self):
-    # Drop the FBO + colour texture (gloo objects are GC-freed); guarded. Called when
-    # a live model reload replaces this visual.
+    # Drop the FBO + colour texture (gloo objects are GC-freed) on reload.
     self._fbo = None
     self._tex = None
 
@@ -775,29 +713,19 @@ class CachedSynapseLinesVisual(Visual):
 CachedSynapseLines = create_visual_node(CachedSynapseLinesVisual)
 
 
-# --- Scrolling "oscilloscope" time axis ------------------------------------
-# The plots scroll a trailing time window under a PINNED camera by writing a
-# single shader uniform (u_xoff) instead of moving the camera -- a camera move
-# fires vispy's transform cascade and, for the linked AxisWidget, a per-draw
-# tick/label glyph + VBO re-upload that ~halves steps/s while scrolling (see the
-# render-perf memory). These two visuals are the axis analogue: the tick marks
-# and the tick labels for the WHOLE timeline are built ONCE, then scrolled by the
-# same u_xoff uniform. Per draw the only work is one scalar write each -- no
-# ticker, no set_data, no glyph re-layout -- so the axis costs ~nothing while
-# scrolling. They live in a thin gutter ViewBox below the plot whose camera x
-# range matches the plot's, so a label at absolute time T lines up with data
-# column T above it (both shifted left by u_xoff). The widget shows these only
-# while running; on pause/finish it hides them and shows the normal (dynamic)
-# vispy AxisWidget so zoom/pan inspection still relabels for any range.
+#### Scrolling "oscilloscope" time axis ####
+# Plots scroll a trailing window under a PINNED camera via one uniform (u_xoff) -- a
+# camera move fires the transform cascade + a per-draw axis glyph/VBO re-upload that
+# ~halves steps/s. These two visuals are the axis analogue: ticks + labels for the whole
+# timeline built ONCE, scrolled by the same u_xoff (one scalar write/draw, no re-layout).
+# They sit in a gutter ViewBox below the plot with matching x-range, so labels line up
+# with the data. Shown only while running; the vispy AxisWidget takes over on pause.
 
-# Tick labels that scroll via a uniform. Subclasses vispy's TextVisual and only
-# swaps its vertex shader to subtract u_xoff from the anchor x BEFORE $transform
-# (the glyph quad offset, added after in pixel space, is untouched). Because the
-# anchor positions never change, TextVisual's `_pos_changed` path -- which
-# re-uploads the per-glyph a_pos/a_rotation VBOs -- never runs after the one-time
-# build; only the uniform changes. NOTE: any change to the visual's transform
-# would re-trip `_pos_changed` (TextVisual._prepare_transforms sets it), so the
-# gutter camera must stay pinned -- which it is.
+### Tick labels that scroll via a uniform ###
+# Subclasses TextVisual, swapping only the vertex shader to subtract u_xoff before
+# $transform. Anchor positions never change, so TextVisual's per-glyph VBO re-upload
+# (`_pos_changed`) never runs after the build. NOTE: a transform change re-trips it, so
+# the gutter camera must stay pinned (it is).
 _SCROLL_TEXT_VERT = _TEXT_VERT.replace(
     "attribute vec3 a_pos;  // anchor position",
     "attribute vec3 a_pos;  // anchor position\n"
@@ -825,13 +753,9 @@ class ScrollingLabelsVisual(TextVisual):
 ScrollingLabels = create_visual_node(ScrollingLabelsVisual)
 
 
-# Tick marks + the static axis baseline, one GL_LINES draw, scrolled by u_xoff
-# (the same trick the raster/voltage data uses). Geometry is built once for the
-# whole timeline; only u_xoff changes per draw. Per-vertex colour so the baseline
-# (white, like vispy's axis_color) and the ticks (grey, like vispy's tick_color)
-# draw in a SINGLE call -- matching the stock AxisVisual it stands in for.
-# ($transform is injected by vispy; no #version line, matching the CachedSynapseLines
-# quad which also rides it.)
+### Tick marks + static axis baseline ###
+# One GL_LINES draw scrolled by u_xoff, built once. Per-vertex colour draws white
+# baseline + grey ticks in a single call, matching the stock AxisVisual.
 _MARKS_VERT = """
 attribute vec2 a_pos;     // (time, gutter_y); gutter_y in [0,1], top (axis line)=1
 attribute vec4 a_color;   // per-vertex colour (white baseline, grey ticks)
@@ -877,3 +801,52 @@ class ScrollingMarksVisual(Visual):
 
 
 ScrollingMarks = create_visual_node(ScrollingMarksVisual)
+
+
+#### Cached static chrome (axes / ticks / labels / titles) ####
+# The canvas re-processes every AxisVisual/TextVisual on the CPU each draw, though the
+# "chrome" is identical frame to frame (~10 ms of a ~14 ms draw). ChromeCache bakes it to
+# one texture and draws it back as a fullscreen quad each frame; THIS visual is that quad.
+# A NullTransform makes a_pos (already clip-space) bypass the camera. Transparent where
+# the live plots show through.
+_CHROME_OVL_VERT = """
+attribute vec2 a_pos;     // fullscreen-quad corner in CLIP space [-1, 1]
+attribute vec2 a_tex;     // matching texcoord [0, 1]
+varying vec2 v_tex;
+void main() {
+    gl_Position = $transform(vec4(a_pos, 0.0, 1.0));   // NullTransform -> identity
+    v_tex = a_tex;
+}
+"""
+
+_CHROME_OVL_FRAG = """
+uniform sampler2D u_tex;   // baked chrome (RGBA; transparent over the plot regions)
+varying vec2 v_tex;
+void main() { gl_FragColor = texture2D(u_tex, v_tex); }
+"""
+
+
+class ChromeOverlayVisual(Visual):
+  def __init__(self):
+    Visual.__init__(self, vcode=_CHROME_OVL_VERT, fcode=_CHROME_OVL_FRAG)
+    self._pos_vbo = gloo.VertexBuffer(
+        np.array([[-1, -1], [1, -1], [-1, 1], [1, 1]], dtype=np.float32))
+    self._tex_vbo = gloo.VertexBuffer(
+        np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype=np.float32))
+    self.shared_program['a_pos'] = self._pos_vbo
+    self.shared_program['a_tex'] = self._tex_vbo
+    self._draw_mode = 'triangle_strip'
+    self.set_gl_state('translucent', depth_test=False)
+
+  def set_texture(self, texture):
+    self.shared_program['u_tex'] = texture
+
+  def _prepare_draw(self, view):
+    return True
+
+  def _prepare_transforms(self, view):
+    # a_pos is already clip-space -> bypass the camera, fill the whole framebuffer.
+    view.view_program.vert['transform'] = NullTransform()
+
+
+ChromeOverlay = create_visual_node(ChromeOverlayVisual)

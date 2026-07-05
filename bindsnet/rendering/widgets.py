@@ -84,21 +84,14 @@ class FixedStepTicker(Ticker):
 
 
 def _sliding_update_subvisuals(self):
-    # Drop-in for vispy AxisVisual._update_subvisuals that avoids rebuilding the
-    # tick-label glyphs when nothing about them changed. The stock version reassigns
-    # `_text.text`, `_text.anchors` and the axis-label text on EVERY domain change;
-    # each of those setters nulls TextVisual._vertices, forcing a full SDF glyph
-    # re-layout (_text_to_vbo + new VertexBuffer) on the next draw. While a plot's
-    # follow window scrolls, the domain changes every draw, so that re-layout ran
-    # every frame and ~halved steps/s (see _make_axis_labels_slide). With a
-    # FixedStepTicker the visible label strings are stable for many frames -- only
-    # their positions slide -- so we cache strings/anchors and touch the
-    # glyph-rebuilding setters only when they actually change. Positions are a cheap
-    # attribute re-upload, so they are always refreshed.
+    # Drop-in for AxisVisual._update_subvisuals that skips rebuilding tick glyphs when
+    # unchanged. The stock version reassigns text/anchors/label every domain change,
+    # nulling TextVisual._vertices -> a full glyph re-layout next draw. A scrolling window
+    # changes the domain every draw, so that ran every frame (~half steps/s). With a
+    # FixedStepTicker the strings are stable, so cache them and touch the glyph-rebuilding
+    # setters only on a real change; positions always re-upload (cheap).
     tick_pos, labels, tick_label_pos, anchors, axis_label_pos = self.ticker.get_update()
-    # The axis line is static (self.pos only changes on resize), but the stock update
-    # re-uploads its VBO every call -- pointless every draw while scrolling. Upload it
-    # only when it actually changes.
+    # Axis line is static; re-upload its VBO only when it changes.
     if not np.array_equal(self.pos, self._cached_line_pos):
         self._line.set_data(pos=self.pos, color=self.axis_color)
         self._cached_line_pos = np.array(self.pos)
@@ -108,8 +101,7 @@ def _sliding_update_subvisuals(self):
     if labels != self._cached_labels:
         self._text.text = labels            # strings changed -> rebuild glyphs
         self._cached_labels = labels
-    # The base Ticker returns a fresh-but-equal anchors list each call; assigning it
-    # blindly would null the vertex buffer too, so only set it when it really differs.
+    # Only set anchors when they differ (a blind set nulls the vertex buffer too).
     if list(anchors) != list(self._text.anchors):
         self._text.anchors = anchors
     self._text.pos = tick_label_pos         # cheap: just slide label positions
@@ -123,13 +115,10 @@ def _sliding_update_subvisuals(self):
 
 
 def _make_axis_labels_slide(axis_widget):
-    # Patch a linked AxisWidget's AxisVisual so a sliding domain stops triggering a
-    # per-draw glyph re-layout (see _sliding_update_subvisuals). Instance-level
-    # override: the bound method shadows the class method vispy calls from
-    # _prepare_draw. The seed values guarantee the first update sets text/labels once.
+    # Patch a linked AxisWidget so a sliding domain stops triggering per-draw glyph
+    # re-layout (see _sliding_update_subvisuals). Instance-level method override.
     axis = axis_widget.axis
-    # AxisVisual is a Frozen vispy object (rejects new attributes); open it to attach
-    # our caches + the override, then re-freeze so typo-guarding still holds elsewhere.
+    # AxisVisual is Frozen; unfreeze to attach caches + the override, then re-freeze.
     axis.unfreeze()
     axis._cached_labels = None
     axis._cached_axis_label = None
@@ -139,27 +128,20 @@ def _make_axis_labels_slide(axis_widget):
 
 
 class AbstractWidget:
-  # Outer margin (px) around each widget's content, giving every plot a bit of
-  # breathing room on all sides within its grid cell.
-  _MARGIN = 10
+  _MARGIN = 10   # outer margin (px) around each widget's content
 
   def __init__(self, title: str | None = None):
-    # Grid to hold the widget title, view and axes (if applicable). The margin
-    # pads the widget's content away from its cell edges on all sides.
     self.grid = scene.widgets.Grid(margin=self._MARGIN)
-    # Explicit title; when None a default is generated from the plotted
-    # component and the widget type (see _default_title / _apply_title).
+    # Explicit title; None -> a default from the component + widget type.
     self.title = title
     self.title_label = None     # created by subclasses that show a title
 
   def _default_title(self) -> str:
-    # Auto-generated title from the plotted component + widget type. Overridden
-    # per widget; the base falls back to the class name.
+    # Auto title from component + widget type; base = class name.
     return type(self).__name__
 
   def _apply_title(self):
-    # Set the title label text: the explicit `title` if given, else the
-    # generated default. Called once the plotted component is known (prime()).
+    # Explicit title if given, else the default. Called from prime().
     if self.title_label is not None:
       self.title_label.text = self.title if self.title is not None else self._default_title()
 
@@ -168,57 +150,69 @@ class AbstractWidget:
     pass
 
   def capture(self, t):
-    # Cheap per-step data capture into GPU buffers. Runs EVERY step regardless of
-    # draw rate, so throttling the draw never drops data. Default: nothing to do
-    # (e.g. the history raster records spikes in network.step). Override for
-    # widgets that fill a ring buffer (voltage).
+    # Per-step GPU capture; runs EVERY step so throttled draws lose no data.
+    # Default: none (the raster records spikes in network.step). Override for voltage.
     pass
 
   @abstractmethod
   def render(self, t):
-    # Draw-time refresh: update camera/axes/uniforms and request a redraw. Runs only
-    # on draw steps (see Application.draw_fps throttling).
+    # Draw-time refresh (camera/axes/uniforms). Only on draw steps (draw_fps).
     pass
 
   def set_paused(self, paused: bool):
-    # Called by the app on every play<->pause transition. Default: nothing to do.
-    # Override for widgets that lock the camera while running so it can be handed
-    # to the user for zoom/pan while paused (see GraphPlotWidget).
+    # Play<->pause transition. Default: none (see GraphPlotWidget).
     pass
 
   def finish(self):
-    # Called once when the simulation completes. Default: nothing to do. Override
-    # for widgets that lock interaction during the run (graph plots).
+    # Sim complete. Default: none.
     pass
 
   def reset(self):
-    # Called by the app when the simulation is reset (network state cleared, time
-    # back to 0). Default: nothing to do. Override to restore the initial camera
-    # view; the underlying GL history buffers are cleared by GUINetwork.reset_history.
+    # Sim reset to t=0. Default: none; override to restore the initial view.
     pass
 
   def reload(self, network):
-    # Called by the app on a live model reload (Application.reload_model): the old
-    # network has been replaced by a freshly built one, possibly with different layer
-    # sizes. The one-time scene scaffolding (axes, scroll-axis gutter, colorbar, title)
-    # built in prime() is KEPT; only the network-bound data visuals + their GPU history
-    # buffers are released and re-created against `network` (the per-widget _bind()).
-    # Default: nothing to do (scaffold-only widgets have no network binding). Requires
-    # prime() to have run first (same total runtime / window size across reloads).
+    # Live model reload: the scaffolding (axes/gutter/colorbar/title) from prime() is
+    # KEPT; only network-bound visuals + their GPU buffers are re-created via _bind().
+    # Default: none (scaffold-only widgets). Requires prime() first.
     pass
 
+  def chrome_nodes(self):
+    # language=rst
+    """
+    Return ``(cached, live)`` scene-node lists for the chrome cache
+    (:class:`~bindsnet.rendering.chrome_cache.ChromeCache`):
 
-# A plotting widget with x and y axis
+    * ``cached`` -- the widget's STATIC chrome (axis lines/ticks/labels, title). The
+      cache bakes these into a texture once and hides them on normal frames, so vispy
+      skips their costly per-draw CPU work; they reappear only during a re-bake.
+    * ``live`` -- nodes that must be drawn live every frame (the data view, the
+      scrolling gutter, the dynamic x-axis). The cache hides these only transiently
+      while baking (so they aren't captured) and otherwise leaves their visibility to
+      the widget; it never forces them on.
+
+    Default: nothing cached (the widget renders normally).
+    """
+    return [], []
+
+  def chrome_signature(self):
+    # language=rst
+    """
+    Cheap, hashable snapshot of anything that changes the *cached* chrome pixels (an
+    axis domain growing, a zoom/pan, ...). The cache re-bakes when it changes. Default:
+    constant (never triggers a re-bake on its own).
+    """
+    return ()
+
+
+# A plotting widget with x and y axes.
 class GraphPlotWidget(AbstractWidget):
-  # Number of columns the title spans = the widget's used columns (y-axis + view,
-  # plus a colorbar column for FeaturePlot). Spanning past the used columns would
-  # create an empty stretchy column that steals plot width.
+  # Columns the title spans (y-axis + view); spanning past them steals plot width.
   _title_col_span = 2
 
   def __init__(self, link_x=True, link_y=True, title: str | None = None):
     super().__init__(title=title)
-    # Title centered across the plotting columns, above the axes/view. Text is
-    # filled in by _apply_title() in prime(), once the component is known.
+    # Title centered over the plotting columns; text set in prime().
     self.title_label = scene.Label("", color='white', font_size=12, bold=True)
     self.title_label.height_max = 26
     self.grid.add_widget(self.title_label, row=0, col=0, col_span=self._title_col_span)
@@ -227,10 +221,8 @@ class GraphPlotWidget(AbstractWidget):
     self.grid.add_widget(self.y_axis, row=1, col=0).width_max = 95
 
     self.view = self.grid.add_view(row=1, col=1, border_color='white')
-    # Bounded camera, locked while the sim runs: render() drives a follow window
-    # and we don't want user zoom fighting that per-draw reset (it makes the axes
-    # glitch). finish() unlocks it once the run is over; limit_rect (set in each
-    # subclass's prime) keeps zoom/pan inside the plotted data.
+    # Bounded camera, locked while running (render() drives the follow window; user zoom
+    # would fight the per-draw reset). finish() unlocks it; limit_rect bounds zoom/pan.
     self.view.camera = BoundedPanZoomCamera()
     self.view.camera.interactive = False
 
@@ -240,42 +232,33 @@ class GraphPlotWidget(AbstractWidget):
     if link_x: self.x_axis.link_view(self.view)   # follows camera (inspect-mode labels)
     if link_y: self.y_axis.link_view(self.view)
 
-    # The follow window slides the x-axis domain every draw; stop that from
-    # re-laying-out the tick-label glyphs each frame (it otherwise ~halves steps/s).
-    # Harmless on the y-axis, whose domain rarely changes.
+    # The follow window slides the x-axis domain every draw; stop the per-frame glyph
+    # re-layout that would otherwise ~halve steps/s. Harmless on the y-axis.
     _make_axis_labels_slide(self.x_axis)
     _make_axis_labels_slide(self.y_axis)
 
     self._initial_rect = None   # starting follow window, captured in each prime()
 
-    # --- Fixed-camera "oscilloscope" scrolling -------------------------------
-    # Moving the camera every frame to follow the newest data fires the vispy
-    # transform cascade (recompute scene transform + re-layout BOTH linked axes +
-    # re-resolve every visual) -- measured to ~halve steps/s the moment scrolling
-    # begins (132 -> 89 on the 20k demo). Instead we PIN the camera and scroll the
-    # data underneath it by writing a single shader uniform (set_x_offset): no camera
-    # move, so NO cascade (frozen-camera diagnostic held 132 -> 132). The vispy x-axis
-    # is hidden while scrolling and the gutter axis below scrolls with the data, so
-    # labels stay on absolute time. Subclasses opt in by setting `_scroll_node` (the
-    # visual to scroll) in prime.
-    self._scroll_node = None    # the Visual we scroll via set_x_offset; set in prime()
-    self._scrolling = False     # True while in fixed-camera scroll mode
+    ### Fixed-camera "oscilloscope" scrolling ###
+    # Moving the camera every frame fires the transform cascade (re-layout both axes +
+    # re-resolve every visual) -- ~halves steps/s. Instead PIN the camera and scroll the
+    # data under it via one uniform (set_x_offset): no cascade. The vispy x-axis hides
+    # while scrolling; the gutter axis below scrolls with the data. Opt in via
+    # `_scroll_node` in prime.
+    self._scroll_node = None    # Visual scrolled via set_x_offset; set in prime()
+    self._scrolling = False     # in fixed-camera scroll mode
     self._abs_rect = None       # last trailing window in ABSOLUTE coords (for inspect)
-    self._last_x0 = None        # last applied scroll offset; skip redundant updates
+    self._last_x0 = None        # last applied offset; skip redundant updates
 
-    # Oscilloscope x-axis: a thin gutter ViewBox co-located with the vispy x-axis
-    # (same grid cell -> same pixel x-extent, so labels line up with the data above).
-    # Its ticks + labels are built once for the whole timeline and scrolled by the
-    # same u_xoff uniform as the data (one scalar write/draw, no glyph re-layout).
-    # Shown only while scrolling; on pause/finish we hide it and show the vispy
-    # x-axis, whose dynamic ticker relabels for any zoom/pan during inspection.
-    # None for non-scrolling widgets (heatmaps), which never build it.
+    # Gutter ViewBox co-located with the vispy x-axis (same cell -> labels line up with
+    # the data). Ticks + labels built once, scrolled by the same u_xoff. Shown only while
+    # scrolling. None for non-scrolling widgets (heatmaps).
     self.x_scroll_view = None
     self.x_scroll_marks = None
     self.x_scroll_labels = None
 
   def _init_scroll(self, node):
-    # Called from a subclass prime() once its scrolling visual exists.
+    # From a subclass prime() once its scrolling visual exists.
     self._scroll_node = node
     self._scroll_node.set_x_offset(0)
     self._scrolling = False
@@ -283,22 +266,16 @@ class GraphPlotWidget(AbstractWidget):
     self._abs_rect = self._initial_rect
 
   def _build_scroll_axis(self, step):
-    # Build the oscilloscope x-axis once: tick marks + labels for the WHOLE timeline
-    # at constant `step`, in a gutter ViewBox co-located with the vispy x-axis. The
-    # gutter camera's x range matches the plot's pinned window, so a label at absolute
-    # time T sits exactly under data column T; both are shifted left by the same
-    # u_xoff each draw.
+    # Build the gutter x-axis once: ticks + labels for the WHOLE timeline at constant
+    # `step`. The gutter's x-range matches the plot's pinned window, so a label at time T
+    # sits under data column T (both shifted left by u_xoff each draw).
     T = int(self.total_timesteps)
     W = float(self.window_size)
     step = float(step)
 
-    # The gutter is pinned to EXACTLY the same pixel height as the vispy x-axis it
-    # stands in for (height_max=55 in __init__), so the geometry below -- expressed
-    # as fractions of that height -- lands on the same pixels the stock AxisVisual
-    # would draw. Forcing min==max==H makes the row that height regardless of layout
-    # pressure, so the fractions stay exact (and the camera maps data-y in [0,1] to
-    # this height with no margin -- an explicitly-set PanZoomCamera.rect fills the
-    # viewbox). x is unconstrained: the camera maps time -> width at any window size.
+    # Pin the gutter to EXACTLY the vispy x-axis's pixel height (55) so the fraction-of-H
+    # geometry below lands on the same pixels. min==max==H forces that height regardless
+    # of layout. x is unconstrained: time -> width at any window size.
     H = 55.0
     self.x_scroll_view = scene.ViewBox(border_color=None)
     self.x_scroll_view.camera = PanZoomCamera(rect=Rect(0, 0, W, 1))
@@ -311,20 +288,15 @@ class GraphPlotWidget(AbstractWidget):
     minor = np.array([m + k * mstep for m in majors for k in (1, 2, 3, 4)
                       if m + k * mstep <= T], dtype=np.float32)
 
-    # Match vispy AxisVisual's exact pixel metrics so the gutter is indistinguishable
-    # from the stock x-axis when scroll<->pause swaps them: line at the TOP edge
-    # (data-y=1, adjacent to the plot), major ticks hang 10 px down, minor ticks 5 px,
-    # number labels anchored (center, top) at major_tick_length + tick_label_margin =
-    # 10 + 12 = 22 px below the line. As fractions of the H px gutter: 1 - px/H.
+    # Match vispy AxisVisual's pixel metrics (baseline at top edge, major ticks 10 px,
+    # minor 5 px, labels 22 px below), as fractions of H: 1 - px/H.
     major_y = 1.0 - 10.0 / H
     minor_y = 1.0 - 5.0 / H
     label_y = 1.0 - 22.0 / H
-    white = (1.0, 1.0, 1.0, 1.0)   # vispy axis_color (the baseline)
-    grey = (0.7, 0.7, 0.7, 1.0)    # vispy tick_color (the ticks)
+    white = (1.0, 1.0, 1.0, 1.0)   # vispy axis_color (baseline)
+    grey = (0.7, 0.7, 0.7, 1.0)    # vispy tick_color (ticks)
 
-    # GL_LINES in gutter data space. The baseline spans the whole timeline so it
-    # always covers the window after the u_xoff shift. Per-vertex colour: white
-    # baseline + grey ticks in one draw (see ScrollingMarksVisual).
+    # GL_LINES in gutter data space; per-vertex colour draws baseline + ticks in one draw.
     segs = [[[0.0, 1.0], [float(T), 1.0]]]                          # axis baseline
     cols = [white, white]
     for m in majors:
@@ -349,9 +321,8 @@ class GraphPlotWidget(AbstractWidget):
     self.x_scroll_view.visible = False   # shown only while scrolling
 
   def _enter_scroll_mode(self):
-    # Pin the camera (x at 0, current y kept) and swap the gutter axis in for the
-    # vispy x-axis: hiding the vispy axis stops its per-draw tick/label upload, and
-    # the gutter scrolls by a single uniform instead.
+    # Pin the camera and swap the gutter axis in for the vispy x-axis (hiding it stops
+    # its per-draw tick/label upload; the gutter scrolls by one uniform).
     if self._scroll_node is None or self._scrolling:
       return
     self.view.camera.interactive = False
@@ -360,42 +331,37 @@ class GraphPlotWidget(AbstractWidget):
     self.x_axis.visible = False
     self.x_scroll_view.visible = True
     self._scrolling = True
-    self._last_x0 = None   # force the next _scroll_to to apply
+    self._last_x0 = None   # force the next _scroll_to
 
   def _exit_scroll_mode(self):
-    # Flip back to ABSOLUTE coords + the dynamic vispy x-axis so paused/finished
-    # zoom-pan over the full history relabels for any range.
+    # Back to ABSOLUTE coords + the dynamic vispy x-axis so paused/finished zoom-pan
+    # relabels for any range.
     if self._scroll_node is None or not self._scrolling:
       return
     self._scroll_node.set_x_offset(0)
     self.x_scroll_marks.set_x_offset(0)
     self.x_scroll_labels.set_x_offset(0)
     self.x_scroll_view.visible = False
-    self.x_axis.visible = True                 # show the dynamic axis for inspection
+    self.x_axis.visible = True
     if self._abs_rect is not None:
-      # Reveal the same window in absolute coords; with the x-axis now visible and
-      # still camera-linked, this rect change relabels it to the absolute window.
-      self.view.camera.rect = self._abs_rect
+      self.view.camera.rect = self._abs_rect   # reveal the same window, absolute coords
     self._scrolling = False
 
   def _scroll_to(self, x0):
-    # Slide the data and the gutter axis so absolute column x0 sits at the left edge
-    # of the pinned window. No camera move -> no transform cascade. Skip when x0 is
-    # unchanged (e.g. the whole pre-scroll phase where x0 stays 0) -- the uniform
-    # setters don't short-circuit on equal values.
+    # Slide data + gutter so column x0 sits at the window's left edge. No camera move.
+    # Skip when x0 is unchanged (the setters don't short-circuit on equal values).
     if not self._scrolling:
       self._enter_scroll_mode()
     if x0 == self._last_x0:
       return
     self._last_x0 = x0
     self._scroll_node.set_x_offset(x0)
-    self.x_scroll_marks.set_x_offset(x0)       # one scalar write each -> ~free
+    self.x_scroll_marks.set_x_offset(x0)
     self.x_scroll_labels.set_x_offset(x0)
 
   def reset(self):
-    # Restore the starting follow window and re-lock the camera; the sim advances
-    # again from t=0 on the next Play/Step (set_paused re-locks too, but reset may
-    # happen after finish() unlocked it).
+    # Restore the starting follow window and re-lock the camera (reset may follow a
+    # finish() that unlocked it).
     self._exit_scroll_mode()
     self._last_x0 = None
     if self._scroll_node is not None:
@@ -408,24 +374,19 @@ class GraphPlotWidget(AbstractWidget):
     self.view.camera.interactive = False
 
   def set_paused(self, paused: bool):
-    # While paused, hand the (bounded) camera to the user for zoom/pan over the full
-    # absolute-time history; while running, scroll under a pinned camera. limit_rect
-    # still keeps zoom/pan inside the plotted data.
+    # Paused: hand the (bounded) camera to the user. Running: scroll under a pinned camera.
     if paused:
       self._exit_scroll_mode()
     self.view.camera.interactive = paused
 
   def finish(self):
-    # Sim done: flip to absolute coords and hand the camera to the user (still
-    # bounded by limit_rect).
+    # Sim done: absolute coords, camera to the user (still bounded by limit_rect).
     self._exit_scroll_mode()
     self.view.camera.interactive = True
 
   def _detach_scroll_for_reload(self):
-    # Live model reload: rewind the (kept) scroll-axis gutter to t=0 and show the
-    # dynamic vispy x-axis, so the re-bound visual starts from a clean, unscrolled
-    # state. The gutter geometry itself (built once in _build_scroll_axis) is reused --
-    # runtime and window_size don't change across reloads, only the data buffer does.
+    # Reload: rewind the kept gutter to t=0 and show the dynamic x-axis. The gutter
+    # geometry is reused (runtime/window_size don't change across reloads).
     if self.x_scroll_marks is not None:
       self.x_scroll_marks.set_x_offset(0)
       self.x_scroll_labels.set_x_offset(0)
@@ -433,6 +394,20 @@ class GraphPlotWidget(AbstractWidget):
     self.x_axis.visible = True
     self._scrolling = False
     self._last_x0 = None
+
+  def chrome_nodes(self):
+    # Bake the y-axis + title (static while scrolling). View + gutter are live. The vispy
+    # x-axis is LIVE too: hidden while scrolling (gutter stands in), listing it here keeps
+    # the bake from capturing it.
+    live = [self.view, self.x_axis]
+    if self.x_scroll_view is not None:
+      live.append(self.x_scroll_view)
+    return [self.y_axis, self.title_label], live
+
+  def chrome_signature(self):
+    # Only the y-axis is baked; its labels track the camera y-range. x is pinned.
+    r = self.view.camera.rect
+    return (round(float(r.bottom), 2), round(float(r.height), 2))
 
 
 class VoltagePlot(GraphPlotWidget):
@@ -474,14 +449,11 @@ class VoltagePlot(GraphPlotWidget):
     return f"{self.layer_name} — Voltage"
 
   def _bind(self, network):
-    # Network-dependent binding, shared by prime() (first run) and reload() (after a
-    # live model rebuild). Allocates the voltage-history GL buffer on `network`, creates
-    # the trace visual over it, and re-fits the camera. Neuron ids past the (possibly
-    # new, smaller) layer size are dropped so texelFetch stays in range.
+    # Shared by prime() and reload(): alloc the voltage-history GL buffer, build the trace
+    # visual, fit the camera. Ids past the (possibly smaller) layer size are dropped.
     self.layer = network.layers[self.layer_name]
     draw_ids = [i for i in self.neuron_ids if 0 <= i < int(self.layer.n)]
 
-    # Allocate the GPU history buffer and route the layer's voltage into it.
     info = network.enable_voltage_history(self.layer_name, self._runtime)
     self.total_timesteps = info['T']
     self._vmin, self._vmax = info['vmin'], info['vmax']   # in-place-updated scalars
@@ -497,16 +469,13 @@ class VoltagePlot(GraphPlotWidget):
     )
     self.view.add(self.lines)
 
-    # Bound zoom/pan to the full plotted extent (all of time x the display range).
+    # Bound zoom/pan to the full extent; start on the first trailing window (y grows later).
     y0, y1 = self.y_range
     self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
-    # Start showing the first trailing window; absolute-time x means zoom-out
-    # reveals all of history. y grows later as extremes appear (see render).
     self._initial_rect = (0, y0, self.window_size, y1 - y0)
     self.view.camera.rect = self._initial_rect
-    # Scroll the traces under a pinned camera instead of panning the camera.
-    self._init_scroll(self.lines)
-    self._last_y_extent = None   # last (y0, y1) pushed to the camera; skip if unchanged
+    self._init_scroll(self.lines)   # scroll under a pinned camera
+    self._last_y_extent = None      # last y-extent pushed; skip if unchanged
 
   def prime(self, network, runtime=None):
     if runtime is None:
@@ -517,8 +486,7 @@ class VoltagePlot(GraphPlotWidget):
     self._bind(network)
     self.y_axis.axis.axis_label = "Voltage (mV)"
     self.x_axis.axis.axis_label = "Timestep"
-    # Ticks at constant multiples of `step` so a sliding domain produces smoothly
-    # translating labels instead of relocated "nice" ones (which jitter/swap).
+    # Constant-step ticks so a sliding domain translates smoothly (no "nice" relocation).
     step = max(1, round(self.window_size / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
@@ -526,8 +494,7 @@ class VoltagePlot(GraphPlotWidget):
     self._apply_title()
 
   def reload(self, network):
-    # Live model reload: keep the axes/scroll gutter/title; swap the trace visual + its
-    # GPU buffer (and the running vmin/vmax scalars) for the new network.
+    # Keep axes/gutter/title; swap the trace visual + GPU buffer (and vmin/vmax scalars).
     self._detach_scroll_for_reload()
     if self.lines is not None:
       self.lines.parent = None
@@ -536,13 +503,9 @@ class VoltagePlot(GraphPlotWidget):
     self._bind(network)
 
   def _y_extent(self):
-    # Dynamic y range: the configured y_range, grown outward to fit the observed
-    # voltage min/max so traces never clip. .item() is a 2-float host sync (the
-    # only readback); the values themselves never leave the GPU. Quantized to a grid
-    # so tiny per-step jitter in the running min/max doesn't nudge the camera every
-    # frame -- each nudge moves the camera, which fires the transform cascade and a
-    # y-axis re-layout. With the running extremes (which saturate within a few steps)
-    # this means the camera/y-axis update only on a genuine range change.
+    # y_range grown to fit the observed voltage min/max so traces never clip. .item() is
+    # the only readback (2 floats). Quantized to a grid so per-step jitter doesn't nudge
+    # the camera every frame (a nudge fires the transform cascade + y-axis re-layout).
     y0, y1 = self.y_range
     vmin, vmax = self._vmin.item(), self._vmax.item()
     if np.isfinite(vmin) and np.isfinite(vmax):
@@ -552,11 +515,8 @@ class VoltagePlot(GraphPlotWidget):
     return float(np.floor(y0 / q) * q), float(np.ceil(y1 / q) * q)
 
   def render(self, t):
-    # The shader reads the buffer live. Scroll the traces under a pinned camera via a
-    # uniform (no transform cascade); the gutter x-axis scrolls the same way. The
-    # camera's x stays pinned -- only y tracks the observed voltage range, and only
-    # when the quantized extent actually changes (otherwise the camera never moves,
-    # so neither it nor the y-axis does any work). See _y_extent.
+    # Scroll traces + gutter under a pinned camera. x stays pinned; y tracks the voltage
+    # range only when the quantized extent changes. See _y_extent.
     x0 = max(0, t - self.window_size + 1)
     self._scroll_to(x0)
     y0, y1 = self._y_extent()
@@ -567,15 +527,12 @@ class VoltagePlot(GraphPlotWidget):
     self._abs_rect = (x0, y0, self.window_size, y1 - y0)
 
   def reset(self):
-    # The running voltage extremes are cleared on reset; forget the last pushed
-    # y-extent so render() re-fits the camera from t=0 instead of keeping the old
-    # (saturated) range.
+    # Extremes are cleared on reset; forget the last y-extent so render() re-fits from t=0.
     self._last_y_extent = None
     super().reset()
 
   def finish(self):
-    # Refresh bounds to the final observed extent (the last draw may predate the
-    # final extreme), then hand the camera to the user.
+    # Refresh bounds to the final extent (the last draw may predate it), then unlock.
     y0, y1 = self._y_extent()
     self.view.camera.limit_rect = Rect(0, y0, self.total_timesteps, y1 - y0)
     super().finish()
@@ -609,9 +566,8 @@ class RasterPlot(GraphPlotWidget):
     return f"{self.layer_name} — Raster"
 
   def _bind(self, network):
-    # Network-dependent binding, shared by prime() (first run) and reload() (after a
-    # live model rebuild). Allocates the spike-history GL buffer on `network`, creates
-    # the data visual over it, and fits the camera to the (possibly new) layer size.
+    # Shared by prime() and reload(): alloc the spike-history GL buffer, build the visual,
+    # fit the camera to the (possibly new) layer size.
     self.layer = network.layers[self.layer_name]
     self.layer_size = self.layer.n
     info = network.enable_spike_history(self.layer_name, self._runtime)
@@ -621,14 +577,11 @@ class RasterPlot(GraphPlotWidget):
         row_stride=info['row'], gl_buffer_id=info['vbo'],
     )
     self.view.add(self.raster)
-    # Bound zoom/pan to the full plotted extent (all of time x all neurons).
+    # Bound zoom/pan to the full extent; start on the first trailing window.
     self.view.camera.limit_rect = Rect(0, 0, self.total_timesteps, self.layer_size)
-    # Start showing the first trailing window; absolute-time x means zoom-out
-    # reveals all of history.
     self._initial_rect = (0, 0, self.window_size, self.layer_size)
     self.view.camera.rect = self._initial_rect
-    # Scroll the raster under a pinned camera instead of panning the camera.
-    self._init_scroll(self.raster)
+    self._init_scroll(self.raster)   # scroll under a pinned camera
 
   def prime(self, network, runtime=None):
     if runtime is None:
@@ -639,8 +592,7 @@ class RasterPlot(GraphPlotWidget):
     self._bind(network)
     self.y_axis.axis.axis_label = "Neuron"
     self.x_axis.axis.axis_label = "Timestep"
-    # Ticks at constant multiples of `step` so a sliding domain produces smoothly
-    # translating labels instead of relocated "nice" ones (which jitter/swap).
+    # Constant-step ticks so a sliding domain translates smoothly.
     step = max(1, round(self.window_size / 5 / 100) * 100) or 100
     self.x_axis.axis.ticker = FixedStepTicker(
       self.x_axis.axis, step=step, anchors=self.x_axis.axis.ticker._anchors)
@@ -648,8 +600,7 @@ class RasterPlot(GraphPlotWidget):
     self._apply_title()
 
   def reload(self, network):
-    # Live model reload: keep the axes/scroll gutter/title, swap the data visual +
-    # its GPU buffer for the new network (layer size may differ -> camera re-fits).
+    # Keep axes/gutter/title; swap the data visual + GPU buffer (layer size may differ).
     self._detach_scroll_for_reload()
     if self.raster is not None:
       self.raster.parent = None
@@ -658,9 +609,8 @@ class RasterPlot(GraphPlotWidget):
     self._bind(network)
 
   def render(self, t):
-    # The shader reads the buffer live. Scroll the raster under a pinned camera (no
-    # transform cascade); _scroll_to slides the data and relabels the detached x-axis
-    # to absolute time. The camera itself never moves while scrolling.
+    # Scroll the raster under a pinned camera; _scroll_to slides the data and relabels the
+    # detached x-axis. The camera never moves.
     x0 = max(0, t - self.window_size + 1)
     self._scroll_to(x0)
     self._abs_rect = (x0, 0, self.window_size, self.layer_size)
@@ -686,10 +636,9 @@ class FeaturePlot(GraphPlotWidget):
   initial values. Pass ``clim=(lo, hi)`` to override.
   """
 
-  # Three columns here: y-axis + view + colorbar, so the title spans all three.
-  _title_col_span = 3
+  _title_col_span = 3   # y-axis + view + colorbar
 
-  # --- knobs a subclass overrides for its feature ---
+  #### Feature knobs (subclass overrides) ####
   texture_format = np.float32     # GL texture dtype; must match the value tensor's dtype
   cmap = 'viridis'                # vispy colormap name
   x_label = "Target neuron"
@@ -698,13 +647,13 @@ class FeaturePlot(GraphPlotWidget):
   def __init__(self, source: str, target: str, feature_name: str,
                clim: tuple[float, float] | None = None, refresh_every: int = 1,
                title: str | None = None):
-    super().__init__(title=title)  # heatmap: both axes linked to the panzoom camera
-    self.source = source          # source layer name (connection key part 1)
-    self.target = target          # target layer name (connection key part 2)
+    super().__init__(title=title)
+    self.source = source          # connection key part 1
+    self.target = target          # connection key part 2
     self.feature_name = feature_name
     self._clim_override = clim    # explicit color limits; else range/data (see _clim)
     self.refresh_every = max(1, refresh_every)  # throttle big-matrix re-uploads
-    self.connection = None        # Initialized in prime()
+    self.connection = None        # set in prime()
     self.feature = None
     self.visual = None
     self.colorbar = None
@@ -713,10 +662,8 @@ class FeaturePlot(GraphPlotWidget):
     return f"{self.source} → {self.target} — {self.feature_name}"
 
   def _bind(self, network):
-    # Network-dependent binding, shared by prime() (first run) and reload() (after a
-    # live model rebuild). Re-locates the connection/feature on `network`, creates the
-    # heatmap visual over its value matrix, and fits the camera. Returns the colour
-    # limits so the caller can build/refresh the colorbar.
+    # Shared by prime() and reload(): re-locate the connection/feature, build the heatmap
+    # over its value matrix, fit the camera. Returns the colour limits for the colorbar.
     self.connection = network.connections[(self.source, self.target)]
     self.feature = self.connection.feature_index[self.feature_name]
 
@@ -738,13 +685,10 @@ class FeaturePlot(GraphPlotWidget):
       cmap=self.cmap,
     )
     self.view.add(self.visual)
-    # Bound zoom/pan to the matrix extent (target x source neurons).
-    self.view.camera.limit_rect = Rect(0, 0, cols, rows)
+    self.view.camera.limit_rect = Rect(0, 0, cols, rows)   # bound to the matrix extent
     self._initial_rect = (0, 0, cols, rows)
     self.view.camera.rect = self._initial_rect
-    # Unlike the time-series plots, the heatmap has no follow window fighting the
-    # user, so allow free (bounded) zoom/pan for the whole run.
-    self.view.camera.interactive = True
+    self.view.camera.interactive = True   # no follow window -> free (bounded) zoom/pan
     return clim
 
   def prime(self, network, runtime=None):
@@ -755,15 +699,13 @@ class FeaturePlot(GraphPlotWidget):
     self._apply_title()
 
   def reload(self, network):
-    # Live model reload: keep the axes/colorbar/title, swap the heatmap visual for one
-    # bound to the new network's feature matrix (its shape may differ -> camera re-fits).
+    # Keep axes/colorbar/title; swap the heatmap for one bound to the new matrix.
     if self.visual is not None:
       self.visual.parent = None
       self.visual.release()
       self.visual = None
     clim = self._bind(network)
-    # Refresh the colorbar legend if the value range changed (best-effort: the stock
-    # ColorBarWidget may not relabel, which is only cosmetic).
+    # Refresh the colorbar legend if the range changed (best-effort, cosmetic).
     if self.colorbar is not None:
       try:
         self.colorbar.clim = clim
@@ -771,9 +713,7 @@ class FeaturePlot(GraphPlotWidget):
         pass
 
   def _add_colorbar(self, clim):
-    # Vertical bar to the right of the view (grid col 2). White text/border: the
-    # canvas bg is black and ColorBarWidget defaults to black. label_color also
-    # colours the min/max tick labels (drawn from clim).
+    # Vertical bar right of the view (col 2). White text/border over the black canvas.
     self.colorbar = scene.ColorBarWidget(
       cmap=self.cmap, orientation='right',
       label=self.feature_name, clim=clim,
@@ -782,13 +722,10 @@ class FeaturePlot(GraphPlotWidget):
     self.grid.add_widget(self.colorbar, row=1, col=2).width_max = 95
 
   def set_paused(self, paused: bool):
-    # The heatmap has no follow window fighting the user, so its camera is left
-    # interactive for the whole run (see prime); pausing changes nothing here.
-    pass
+    pass   # camera stays interactive the whole run (no follow window)
 
   def reset(self):
-    # The heatmap camera stays interactive the whole run (no follow window); just
-    # restore the initial full-matrix view and re-show the (now-cleared) values.
+    # Restore the full-matrix view and re-show the (cleared) values.
     if self._initial_rect is not None:
       self.view.camera.rect = self._initial_rect
     self.visual.migrate()
@@ -797,13 +734,24 @@ class FeaturePlot(GraphPlotWidget):
     if t % self.refresh_every == 0:
       self.visual.migrate()
 
+  def chrome_nodes(self):
+    # Bake both axes + title; view is live. The colorbar is LIVE too -- its gradient
+    # doesn't bake with usable alpha -- but it's static and cheap.
+    return [self.y_axis, self.x_axis, self.title_label], [self.view, self.colorbar]
+
+  def chrome_signature(self):
+    # Both axes baked, camera interactive -> labels track the full rect; re-bake on zoom.
+    r = self.view.camera.rect
+    return (round(float(r.left), 2), round(float(r.bottom), 2),
+            round(float(r.width), 2), round(float(r.height), 2))
+
   def _clim(self):
     # language=rst
     """Return ``(low, high)`` colour limits in feature-value units."""
     if self._clim_override is not None:
       return tuple(self._clim_override)
 
-    # Prefer the feature's declared range, when it's a finite (lo < hi) scalar pair.
+    # Prefer the feature's declared range, when a finite (lo < hi) scalar pair.
     rng = getattr(self.feature, "range", None)
     if rng is not None and len(rng) == 2:
       try:
@@ -811,12 +759,10 @@ class FeaturePlot(GraphPlotWidget):
         if np.isfinite(lo) and np.isfinite(hi) and lo < hi:
           return (lo, hi)
       except (TypeError, ValueError):
-        pass   # e.g. a non-scalar tensor range -> fall through to data-derived
+        pass   # non-scalar tensor range -> data-derived
 
-    # Fallback: symmetric range from the initial values (a scalar reduction -- two
-    # floats reach the host, not the matrix -- so the zero-copy render path is
-    # untouched). Symmetric keeps 0 at the colormap center; rounded for a clean
-    # colorbar label.
+    # Fallback: symmetric range from the initial values (a scalar reduction, keeps 0
+    # centred). Rounded for a clean colorbar label.
     m = self.feature.value.abs().max().item()
     if not np.isfinite(m) or m == 0.0:
       return (-1.0, 1.0)
@@ -870,13 +816,9 @@ class NetworkPlot(AbstractWidget):
   _ROW_ASPECT = 4.0       # block is ~this many times taller than wide
   _SPACING = 1.0          # neuron-to-neuron grid spacing within a layer block
 
-  # Synapse lines are redrawn every frame and the draw cost is ~linear in the total
-  # vertex count (one GL_LINES draw, vertex-bound -- profiled: ~50k segments alongside
-  # other plots costs ~24 ms/frame). Curved back-edges are the worst offender (N x
-  # `curve_segments` vertices), so a back-edge connection's curve resolution is scaled
-  # down once it would spend more than this many segment-vertices, collapsing to a
-  # straight line when there are very many edges (where a smooth bow is invisible in
-  # the hairball anyway).
+  # Curve-vertex budget per back-edge connection: curved edges (N x `curve_segments`
+  # verts) dominate the vertex-bound line draw, so a connection's curve resolution is
+  # scaled down past this, collapsing to straight when there are very many edges.
   _CURVE_VERT_BUDGET = 6000
 
   def __init__(self,
@@ -899,7 +841,6 @@ class NetworkPlot(AbstractWidget):
     self.line_alpha = float(line_alpha)
     self.curve_segments = max(1, int(curve_segments))   # back-edge bow resolution
 
-    # Title across the top, with the diagram view below it.
     self.title_label = scene.Label("", color='white', font_size=12, bold=True)
     self.title_label.height_max = 26
     self.grid.add_widget(self.title_label, row=0, col=0)
@@ -917,11 +858,10 @@ class NetworkPlot(AbstractWidget):
   def _default_title(self) -> str:
     return "Network"
 
-  # --- layout ---------------------------------------------------------------
+  #### Layout ####
   def _layout(self, network):
-    # Place each layer as a vertically-centered grid block, columns left->right in
-    # the network's layer insertion order. Square grid spacing within a block; gap
-    # between blocks scales with the tallest block so columns stay visually distinct.
+    # Each layer is a vertically-centered grid block, columns left->right in insertion
+    # order. Block gap scales with the tallest block so columns stay distinct.
     names = self.layer_names or list(network.layers.keys())
     blocks = {}
     max_h = 1.0
@@ -946,7 +886,7 @@ class NetworkPlot(AbstractWidget):
       x_cursor += (gc - 1) * self._SPACING + gap                 # next column
     return names
 
-  # --- synapse selection / geometry ----------------------------------------
+  #### Synapse selection / geometry ####
   @staticmethod
   def _find_features(connection):
     weight = mask = None
@@ -958,8 +898,8 @@ class NetworkPlot(AbstractWidget):
     return weight, mask
 
   def _select_synapses(self, connection):
-    # Device-side selection (keeps the big matrices on the GPU); only the capped
-    # index/weight set crosses to the host. Returns (src_i, tgt_j, w) numpy arrays.
+    # Device-side selection; only the capped index/weight set crosses to the host.
+    # Returns (src_i, tgt_j, w) numpy arrays.
     weight, mask = self._find_features(connection)
     if weight is None:
       return None
@@ -987,8 +927,8 @@ class NetworkPlot(AbstractWidget):
 
   @staticmethod
   def _curve(p0, p2, segments):
-    # Quadratic-bezier polyline bowed perpendicular to each chord, returned as
-    # consecutive GL_LINES segment pairs. p0/p2: (K, 2). -> verts (K*segments*2, 2).
+    # Quadratic-bezier polyline bowed perpendicular to each chord, as GL_LINES pairs.
+    # p0/p2: (K, 2) -> verts (K*segments*2, 2).
     mid = 0.5 * (p0 + p2)
     d = p2 - p0
     perp = np.stack([-d[:, 1], d[:, 0]], axis=1)
@@ -1024,10 +964,8 @@ class NetworkPlot(AbstractWidget):
       p0 = self._positions[src][i]
       p2 = self._positions[tgt][j]
       back = self._col[tgt] <= self._col[src]        # recurrent edge -> bow
-      # Curve resolution scaled to the edge count so the per-frame line-draw cost
-      # stays bounded: full `curve_segments` for small connections, fewer as the
-      # count grows, and a straight line (seg=1) once a smooth bow would be lost in
-      # the density anyway. Forward edges are always straight (1 segment).
+      # Curve resolution scaled to the edge count (fewer segments as it grows, straight
+      # once a bow would be lost in the density). Forward edges are always straight.
       seg = min(self.curve_segments, max(1, self._CURVE_VERT_BUDGET // max(1, len(w)))) \
           if back else 1
       if seg <= 1:
@@ -1044,36 +982,32 @@ class NetworkPlot(AbstractWidget):
     verts = np.concatenate(all_verts, axis=0)
     wv = np.concatenate(all_w, axis=0)
 
-    # Colour by weight on a diverging map, symmetric about 0 so excitatory and
-    # inhibitory read as opposite hues (clim from the selected weights).
+    # Colour by weight on a diverging map, symmetric about 0 (clim from the weights).
     m = float(np.abs(wv).max()) if wv.size else 1.0
     m = m if (np.isfinite(m) and m > 0) else 1.0
     t = np.clip((wv + m) / (2 * m), 0.0, 1.0)
     colors = get_colormap('coolwarm').map(t).astype(np.float32)   # (V, 4)
     colors[:, 3] = self.line_alpha
 
-    # Cached: bake the static lines into a texture once; the per-frame draw is then a
-    # single camera-transformed quad (see CachedSynapseLinesVisual).
+    # Cached: the static lines bake once; the per-frame draw is a single quad.
     self.synapses = CachedSynapseLines(positions=verts, colors=colors, bbox=bbox)
     self.view.add(self.synapses)
 
-  # --- AbstractWidget API ---------------------------------------------------
+  #### AbstractWidget API ####
   def _bind(self, network):
-    # Network-dependent binding, shared by prime() (first run) and reload() (after a
-    # live model rebuild). Re-lays-out the neurons, rebuilds the synapse lines + neuron
-    # clouds against `network`, and fits the camera. Assumes the per-widget visual lists
-    # were cleared by the caller (prime starts empty; reload releases the old ones).
+    # Shared by prime() and reload(): re-layout neurons, rebuild synapse lines + clouds,
+    # fit the camera. The caller clears the visual lists first.
     names = self._layout(network)
 
-    # Data-space bounding box of all neuron positions (lines live within it).
+    # Bounding box of all neuron positions (lines live within it).
     allpos = np.concatenate(list(self._positions.values()), axis=0)
     x0, y0 = allpos.min(axis=0)
     x1, y1 = allpos.max(axis=0)
 
-    # Synapses first so neurons draw on top of the lines.
+    # Synapses first so neurons draw on top.
     self._build_synapses(network, names, (x0, y0, x1, y1))
 
-    # One neuron cloud per layer, each bound to that layer's (shared) spike history.
+    # One neuron cloud per layer, bound to that layer's shared spike history.
     K = len(names)
     for ci, name in enumerate(names):
       info = network.enable_spike_history(name, self._runtime)
@@ -1088,7 +1022,7 @@ class NetworkPlot(AbstractWidget):
       self.view.add(cloud)
       self.clouds.append(cloud)
 
-    # Fit the camera to the whole diagram (with a small margin) and bound zoom/pan.
+    # Fit + bound the camera to the whole diagram, with a small margin.
     padx = 0.05 * max(1.0, x1 - x0)
     pady = 0.05 * max(1.0, y1 - y0)
     rect = (x0 - padx, y0 - pady, (x1 - x0) + 2 * padx, (y1 - y0) + 2 * pady)
@@ -1106,8 +1040,8 @@ class NetworkPlot(AbstractWidget):
     self._apply_title()
 
   def reload(self, network):
-    # Live model reload: release the old clouds + cached synapse lines, drop the stale
-    # layout, and rebuild everything against the new network (sizes/connectivity differ).
+    # Release the old clouds + cached lines, drop the stale layout, rebuild against the
+    # new network.
     if self.synapses is not None:
       self.synapses.parent = None
       self.synapses.release()
@@ -1121,15 +1055,11 @@ class NetworkPlot(AbstractWidget):
     self._bind(network)
 
   def capture(self, t):
-    # Spikes are already in the GL history buffer (written in network.step); nothing
-    # to copy here.
-    pass
+    pass   # spikes already in the GL history buffer (written in network.step)
 
   def render(self, t):
-    # Re-bake the synapse texture only when stale (first frame / after set_colors);
-    # the static lines are otherwise never redrawn -- the per-frame cost is one quad.
-    # Done here (outside the scene draw) so the nested FBO pass doesn't clobber the
-    # in-flight viewport; make the canvas context current first.
+    # Re-bake the synapse texture only when stale (first frame / after set_colors).
+    # Outside the scene draw so the nested FBO pass doesn't clobber the viewport.
     if self.synapses is not None and self.synapses.dirty:
       canvas = self.view.canvas
       if canvas is not None:
@@ -1143,3 +1073,7 @@ class NetworkPlot(AbstractWidget):
       self.view.camera.rect = self._initial_rect
     for cloud in self.clouds:
       cloud.set_time(0)
+
+  def chrome_nodes(self):
+    # Only the static title is chrome; the live diagram view draws every frame.
+    return [self.title_label], [self.view]

@@ -3,7 +3,7 @@ from bindsnet.rendering.widgets import VoltagePlot, RasterPlot, WeightPlot, Netw
 from model import ExampleNetwork
 
 SIM_TIME = 1000
-DEVICE = "cuda"
+DEVICE = "cpu"
 DRAW_FPS = 30          # cap plot redraws; the sim runs as fast as it can between draws
 
 # An inheritable GUINetwork: its constructor stores the model parameters, build()
@@ -35,10 +35,10 @@ app.add_widget(
   WeightPlot(source="I", target="EXC_LIF", feature_name="I_to_EXC_weight"),
   row=2, col=0,
 )
-# app.add_widget(
-#   # The network itself: neurons as circles in layered columns (I / EXC / INH),
-#   # synapses as weight-coloured lines (capped per connection), firing shown live.
-#   NetworkPlot(afterglow=10),
-#   row=1, col=1,
-# )
+app.add_widget(
+  # The network itself: neurons as circles in layered columns (I / EXC / INH),
+  # synapses as weight-coloured lines (capped per connection), firing shown live.
+  NetworkPlot(afterglow=10),
+  row=2, col=1,
+)
 app.run(runtime=SIM_TIME)
